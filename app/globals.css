@@ -1,0 +1,557 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Updated to professional nature theme with forest green primary and stone/earth tones */
+  --background: oklch(0.99 0.005 85);
+  --foreground: oklch(0.25 0.015 85);
+  --card: oklch(0.98 0.008 85);
+  --card-foreground: oklch(0.25 0.015 85);
+  --popover: oklch(0.98 0.008 85);
+  --popover-foreground: oklch(0.25 0.015 85);
+  --primary: oklch(0.45 0.15 145);
+  --primary-foreground: oklch(0.98 0.008 85);
+  --secondary: oklch(0.55 0.12 220);
+  --secondary-foreground: oklch(0.98 0.008 85);
+  --muted: oklch(0.94 0.01 85);
+  --muted-foreground: oklch(0.45 0.02 85);
+  --accent: oklch(0.55 0.12 220);
+  --accent-foreground: oklch(0.98 0.008 85);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.98 0.008 85);
+  --border: oklch(0.88 0.015 85);
+  --input: oklch(0.88 0.015 85);
+  --ring: oklch(0.45 0.15 145);
+  --chart-1: oklch(0.45 0.15 145);
+  --chart-2: oklch(0.55 0.12 220);
+  --chart-3: oklch(0.5 0.13 180);
+  --chart-4: oklch(0.4 0.12 160);
+  --chart-5: oklch(0.6 0.1 200);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.98 0.008 85);
+  --sidebar-foreground: oklch(0.25 0.015 85);
+  --sidebar-primary: oklch(0.45 0.15 145);
+  --sidebar-primary-foreground: oklch(0.98 0.008 85);
+  --sidebar-accent: oklch(0.94 0.01 85);
+  --sidebar-accent-foreground: oklch(0.25 0.015 85);
+  --sidebar-border: oklch(0.88 0.015 85);
+  --sidebar-ring: oklch(0.45 0.15 145);
+
+  /* Professional nature-themed role-specific colors using forest greens and ocean blues */
+  --government: #1e40af;
+  --researcher: #0891b2;
+  --user: #16a34a;
+  --ngo: #059669;
+}
+
+.dark {
+  /* Updated dark mode with professional nature tones */
+  --background: oklch(0.12 0.015 85);
+  --foreground: oklch(0.95 0.008 85);
+  --card: oklch(0.15 0.015 85);
+  --card-foreground: oklch(0.95 0.008 85);
+  --popover: oklch(0.15 0.015 85);
+  --popover-foreground: oklch(0.95 0.008 85);
+  --primary: oklch(0.6 0.15 145);
+  --primary-foreground: oklch(0.12 0.015 85);
+  --secondary: oklch(0.65 0.12 220);
+  --secondary-foreground: oklch(0.12 0.015 85);
+  --muted: oklch(0.2 0.015 85);
+  --muted-foreground: oklch(0.65 0.02 85);
+  --accent: oklch(0.65 0.12 220);
+  --accent-foreground: oklch(0.12 0.015 85);
+  --destructive: oklch(0.65 0.2 25);
+  --destructive-foreground: oklch(0.95 0.008 85);
+  --border: oklch(0.25 0.015 85);
+  --input: oklch(0.25 0.015 85);
+  --ring: oklch(0.6 0.15 145);
+  --chart-1: oklch(0.6 0.15 145);
+  --chart-2: oklch(0.65 0.12 220);
+  --chart-3: oklch(0.6 0.13 180);
+  --chart-4: oklch(0.55 0.12 160);
+  --chart-5: oklch(0.7 0.1 200);
+  --sidebar: oklch(0.12 0.015 85);
+  --sidebar-foreground: oklch(0.95 0.008 85);
+  --sidebar-primary: oklch(0.6 0.15 145);
+  --sidebar-primary-foreground: oklch(0.12 0.015 85);
+  --sidebar-accent: oklch(0.2 0.015 85);
+  --sidebar-accent-foreground: oklch(0.95 0.008 85);
+  --sidebar-border: oklch(0.25 0.015 85);
+  --sidebar-ring: oklch(0.6 0.15 145);
+
+  /* Dark mode professional nature colors */
+  --government: #3b82f6;
+  --researcher: #06b6d4;
+  --user: #22c55e;
+  --ngo: #10b981;
+}
+
+@theme inline {
+  /* optional: --font-sans, --font-serif, --font-mono if they are applied in the layout.tsx */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Enhanced glassmorphism with professional nature-inspired effects */
+  .glass {
+    @apply backdrop-blur-md bg-white/70 border border-stone-200/40 shadow-lg shadow-green-500/5;
+  }
+
+  .glass-strong {
+    @apply backdrop-blur-lg bg-white/80 border border-stone-200/50 shadow-xl shadow-green-500/10;
+  }
+
+  .glass-subtle {
+    @apply backdrop-blur-sm bg-white/60 border border-stone-200/30 shadow-md shadow-green-500/5;
+  }
+
+  /* Enhanced interactive elements with professional nature theme */
+  .interactive-card {
+    @apply hover:scale-105 hover:shadow-xl hover:shadow-green-500/10 transition-all duration-300 cursor-pointer;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-green-600 via-blue-500 to-emerald-600 bg-clip-text text-transparent;
+  }
+
+  /* Professional nature-themed utility classes with calm, trustworthy colors */
+  .nature-gradient {
+    @apply bg-gradient-to-br from-stone-50 via-green-50/30 to-blue-50/20;
+  }
+
+  .forest-shadow {
+    @apply shadow-lg shadow-green-600/15;
+  }
+
+  .ocean-shadow {
+    @apply shadow-lg shadow-blue-500/15;
+  }
+
+  /* Adding immersive nature background styles and animations */
+
+  /* Main nature background with blurred forest imagery */
+  .nature-bg {
+    background: linear-gradient(
+        135deg,
+        rgba(248, 250, 252, 0.95) 0%,
+        rgba(240, 253, 244, 0.9) 25%,
+        rgba(239, 246, 255, 0.9) 50%,
+        rgba(250, 250, 249, 0.95) 100%
+      ), url("/blurred-forest-background.png");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    animation: subtleShift 20s ease-in-out infinite;
+  }
+
+  @keyframes subtleShift {
+    0%,
+    100% {
+      background-position: center center;
+    }
+    50% {
+      background-position: center top;
+    }
+  }
+
+  /* Ocean background for impact section */
+  .ocean-bg {
+    background: linear-gradient(
+        135deg,
+        rgba(34, 197, 94, 0.8) 0%,
+        rgba(16, 185, 129, 0.8) 25%,
+        rgba(59, 130, 246, 0.8) 75%,
+        rgba(37, 99, 235, 0.8) 100%
+      ), url("/serene-ocean-surface.png");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+  }
+
+  /* Parallax scrolling effect */
+  .parallax-section {
+    background-attachment: fixed;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  /* Floating particles container */
+  .floating-particles {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Individual particle styles */
+  .particle {
+    position: absolute;
+    pointer-events: none;
+    animation: floatUp linear infinite;
+  }
+
+  .particle.leaf {
+    width: 6px;
+    height: 8px;
+    background: rgba(34, 197, 94, 0.4);
+    border-radius: 50% 0 50% 0;
+    transform: rotate(45deg);
+  }
+
+  .particle.droplet {
+    width: 4px;
+    height: 6px;
+    background: rgba(59, 130, 246, 0.5);
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+  }
+
+  .particle.pollen {
+    width: 3px;
+    height: 3px;
+    background: rgba(251, 191, 36, 0.6);
+    border-radius: 50%;
+  }
+
+  @keyframes floatUp {
+    0% {
+      transform: translateY(100vh) rotate(0deg);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    90% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-10vh) rotate(360deg);
+      opacity: 0;
+    }
+  }
+
+  /* Sunlight rays effect */
+  .sunlight-rays {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(251, 191, 36, 0.05) 50%, transparent 70%);
+    animation: sunlightMove 25s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes sunlightMove {
+    0%,
+    100% {
+      transform: translateX(-20%) rotate(0deg);
+    }
+    50% {
+      transform: translateX(20%) rotate(2deg);
+    }
+  }
+
+  /* Floating clouds */
+  .floating-clouds {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+  }
+
+  .cloud {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50px;
+    opacity: 0.6;
+  }
+
+  .cloud-1 {
+    width: 100px;
+    height: 40px;
+    top: 20%;
+    left: 10%;
+    animation: cloudFloat 30s ease-in-out infinite;
+  }
+
+  .cloud-2 {
+    width: 80px;
+    height: 30px;
+    top: 40%;
+    right: 15%;
+    animation: cloudFloat 25s ease-in-out infinite reverse;
+  }
+
+  @keyframes cloudFloat {
+    0%,
+    100% {
+      transform: translateX(0) translateY(0);
+    }
+    50% {
+      transform: translateX(30px) translateY(-10px);
+    }
+  }
+
+  /* Water ripple effects */
+  .water-ripples {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+  }
+
+  .ripple {
+    position: absolute;
+    border: 2px solid rgba(59, 130, 246, 0.2);
+    border-radius: 50%;
+    animation: rippleExpand 4s ease-out infinite;
+  }
+
+  .ripple:nth-child(1) {
+    top: 30%;
+    left: 20%;
+    animation-delay: 0s;
+  }
+
+  .ripple:nth-child(2) {
+    top: 60%;
+    right: 30%;
+    animation-delay: 1.5s;
+  }
+
+  .ripple:nth-child(3) {
+    bottom: 40%;
+    left: 60%;
+    animation-delay: 3s;
+  }
+
+  @keyframes rippleExpand {
+    0% {
+      width: 0;
+      height: 0;
+      opacity: 1;
+    }
+    100% {
+      width: 100px;
+      height: 100px;
+      opacity: 0;
+    }
+  }
+
+  /* Adding interactive animation classes for engaging nature-themed effects */
+
+  /* Animated background with subtle shifting gradient */
+  .animated-bg {
+    background: linear-gradient(-45deg, #f8fafc, #f0fdf4, #eff6ff, #fafaf9);
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
+  }
+
+  @keyframes gradientShift {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  /* Floating leaves animation for hero section */
+  .floating-leaves::before,
+  .floating-leaves::after {
+    content: "";
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: rgba(34, 197, 94, 0.3);
+    border-radius: 50% 0;
+    animation: float 20s infinite linear;
+    pointer-events: none;
+  }
+
+  .floating-leaves::before {
+    top: 20%;
+    left: 10%;
+    animation-delay: -5s;
+    animation-duration: 25s;
+  }
+
+  .floating-leaves::after {
+    top: 60%;
+    right: 15%;
+    animation-delay: -15s;
+    animation-duration: 30s;
+    background: rgba(59, 130, 246, 0.3);
+  }
+
+  @keyframes float {
+    0% {
+      transform: translateY(0px) rotate(0deg);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    90% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-100vh) rotate(360deg);
+      opacity: 0;
+    }
+  }
+
+  /* Enhanced hover lift effect */
+  .hover-lift {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 20px 40px rgba(34, 197, 94, 0.15);
+  }
+
+  /* Subtle pulse glow for hero section */
+  .pulse-glow {
+    animation: pulseGlow 4s ease-in-out infinite;
+  }
+
+  @keyframes pulseGlow {
+    0%,
+    100% {
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.1);
+    }
+    50% {
+      box-shadow: 0 0 40px rgba(34, 197, 94, 0.2), 0 0 60px rgba(59, 130, 246, 0.1);
+    }
+  }
+
+  /* Scroll reveal animations */
+  .scroll-reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .scroll-reveal.revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Staggered reveal for grid items */
+  .scroll-reveal:nth-child(1) {
+    transition-delay: 0.1s;
+  }
+  .scroll-reveal:nth-child(2) {
+    transition-delay: 0.2s;
+  }
+  .scroll-reveal:nth-child(3) {
+    transition-delay: 0.3s;
+  }
+  .scroll-reveal:nth-child(4) {
+    transition-delay: 0.4s;
+  }
+
+  /* Logo animation keyframes */
+  @keyframes logoEnter {
+    0% {
+      transform: scale(0) rotate(180deg);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1) rotate(0deg);
+      opacity: 1;
+    }
+  }
+
+  @keyframes logoExit {
+    0% {
+      transform: scale(1) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1.5) rotate(0deg);
+      opacity: 0;
+    }
+  }
+
+  @keyframes rippleOut {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(3);
+      opacity: 0;
+    }
+  }
+
+  /* Logo animation utility classes */
+  .logo-enter {
+    animation: logoEnter 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .logo-exit {
+    animation: logoExit 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .ripple-animation {
+    animation: rippleOut 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+}
