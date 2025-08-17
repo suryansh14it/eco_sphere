@@ -31,15 +31,26 @@ import {
   Share2,
   Plus,
   Languages,
+  CheckCircle,
+  Brain,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import QuizModal from "@/components/quiz-modal"
 
 export default function UserDashboard() {
   const [issueTitle, setIssueTitle] = useState("")
   const [issueLocation, setIssueLocation] = useState("")
+  const [quizModalOpen, setQuizModalOpen] = useState(false)
+  const [quizMaterial, setQuizMaterial] = useState<{
+    title: string;
+    type: string;
+    id: string;
+    description?: string;
+  } | null>(null)
   const [issueDescription, setIssueDescription] = useState("")
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [language, setLanguage] = useState<"en" | "hi" | "bn" | "ta" | "te" | "mr">("en")
+  const [completedItems, setCompletedItems] = useState<Set<string>>(new Set())
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -78,7 +89,7 @@ export default function UserDashboard() {
 
   const translations = {
     en: {
-      welcome: "Welcome back, Arjun!",
+      welcome: `Welcome back, ${user?.name || 'User'}!`,
       progress: "You've made amazing progress this month. Keep up the great work for our planet!",
       level: "Level 7 Eco-Warrior",
       impactPoints: "Impact Points",
@@ -103,6 +114,10 @@ export default function UserDashboard() {
       leaderboard: "Community Leaderboard",
       viewFullLeaderboard: "View Full Leaderboard",
       educationHub: "Environmental Education Hub",
+      educationalVideos: "Educational Videos",
+      researchPapers: "Research Papers & PDFs",
+      completed: "Completed",
+      markComplete: "Mark as Complete",
       environmentalJourney: "My Environmental Journey",
       today: "Today",
       daysAgo: "days ago",
@@ -111,7 +126,7 @@ export default function UserDashboard() {
       monthAgo: "month ago",
     },
     hi: {
-      welcome: "वापसी पर स्वागत है, अर्जुन!",
+      welcome: `वापसी पर स्वागत है, ${user?.name || 'उपयोगकर्ता'}!`,
       progress: "इस महीने आपने अद्भुत प्रगति की है। हमारे ग्रह के लिए महान कार्य जारी रखें!",
       level: "स्तर 7 पर्यावरण योद्धा",
       impactPoints: "प्रभाव अंक",
@@ -136,6 +151,10 @@ export default function UserDashboard() {
       leaderboard: "समुदायिक लीडरबोर्ड",
       viewFullLeaderboard: "पूरा लीडरबोर्ड देखें",
       educationHub: "पर्यावरण शिक्षा केंद्र",
+      educationalVideos: "शैक्षणिक वीडियो",
+      researchPapers: "अनुसंधान पत्र और पीडीएफ",
+      completed: "पूर्ण",
+      markComplete: "पूर्ण के रूप में चिह्नित करें",
       environmentalJourney: "मेरी पर्यावरणीय यात्रा",
       today: "आज",
       daysAgo: "दिन पहले",
@@ -144,7 +163,7 @@ export default function UserDashboard() {
       monthAgo: "महीना पहले",
     },
     bn: {
-      welcome: "স্বাগতম ফিরে, অর্জুন!",
+      welcome: `স্বাগতম ফিরে, ${user?.name || 'ব্যবহারকারী'}!`,
       progress: "এই মাসে আপনি অসাধারণ অগ্রগতি করেছেন। আমাদের গ্রহের জন্য দুর্দান্ত কাজ চালিয়ে যান!",
       level: "লেভেল ৭ পরিবেশ যোদ্ধা",
       impactPoints: "প্রভাব পয়েন্ট",
@@ -169,6 +188,10 @@ export default function UserDashboard() {
       leaderboard: "কমিউনিটি লিডারবোর্ড",
       viewFullLeaderboard: "সম্পূর্ণ লিডারবোর্ড দেখুন",
       educationHub: "পরিবেশ শিক্ষা কেন্দ্র",
+      educationalVideos: "শিক্ষামূলক ভিডিও",
+      researchPapers: "গবেষণা পত্র এবং পিডিএফ",
+      completed: "সম্পন্ন",
+      markComplete: "সম্পন্ন হিসেবে চিহ্নিত করুন",
       environmentalJourney: "আমার পরিবেশগত যাত্রা",
       today: "আজ",
       daysAgo: "দিন আগে",
@@ -177,7 +200,7 @@ export default function UserDashboard() {
       monthAgo: "মাস আগে",
     },
     ta: {
-      welcome: "மீண்டும் வரவேற்கிறோம், அர்ஜுன்!",
+      welcome: `மீண்டும் வரவேற்கிறோம், ${user?.name || 'பயனர்'}!`,
       progress: "இந்த மாதம் நீங்கள் அற்புதமான முன்னேற்றம் அடைந்துள்ளீர்கள். நமது கிரகத்திற்கான சிறந்த பணியைத் தொடருங்கள்!",
       level: "நிலை 7 சுற்றுச்சூழல் வீரர்",
       impactPoints: "தாக்க புள்ளிகள்",
@@ -202,6 +225,10 @@ export default function UserDashboard() {
       leaderboard: "சமூக லீடர்போர்டு",
       viewFullLeaderboard: "முழு லீடர்போர்டைப் பார்க்கவும்",
       educationHub: "சுற்றுச்சூழல் கல்வி மையம்",
+      educationalVideos: "கல்வி வீடியோக்கள்",
+      researchPapers: "ஆராய்ச்சி கட்டுரைகள் & PDF",
+      completed: "முடிக்கப்பட்டது",
+      markComplete: "நிறைவு என குறிக்கவும்",
       environmentalJourney: "எனது சுற்றுச்சூழல் பயணம்",
       today: "இன்று",
       daysAgo: "நாட்களுக்கு முன்பு",
@@ -210,7 +237,7 @@ export default function UserDashboard() {
       monthAgo: "மாதம் முன்பு",
     },
     te: {
-      welcome: "తిరిగి స్వాగతం, అర్జున్!",
+      welcome: `తిరిగి స్వాగతం, ${user?.name || 'వినియోగదారు'}!`,
       progress: "ఈ నెలలో మీరు అద్భుతమైన పురోగతి సాధించారు. మన గ్రహం కోసం గొప్ప పనిని కొనసాగించండి!",
       level: "స్థాయి 7 పర్యావరణ యోధుడు",
       impactPoints: "ప్రభావ పాయింట్లు",
@@ -235,6 +262,10 @@ export default function UserDashboard() {
       leaderboard: "కమ్యూనిటీ లీడర్‌బోర్డ్",
       viewFullLeaderboard: "పూర్తి లీడర్‌బోర్డ్ చూడండి",
       educationHub: "పర్యావరణ విద్యా కేంద్రం",
+      educationalVideos: "విద్యా వీడియోలు",
+      researchPapers: "పరిశోధన పత్రాలు & PDF లు",
+      completed: "పూర్తయింది",
+      markComplete: "పూర్తిగా గుర్తించండి",
       environmentalJourney: "నా పర్యావరణ ప్రయాణం",
       today: "ఈరోజు",
       daysAgo: "రోజుల క్రితం",
@@ -243,7 +274,7 @@ export default function UserDashboard() {
       monthAgo: "నెల క్రితం",
     },
     mr: {
-      welcome: "परत स्वागत आहे, अर्जुन!",
+      welcome: `परत स्वागत आहे, ${user?.name || 'वापरकर्ता'}!`,
       progress: "या महिन्यात तुम्ही अप्रतिम प्रगती केली आहे. आपल्या ग्रहासाठी उत्कृष्ट कार्य चालू ठेवा!",
       level: "स्तर 7 पर्यावरण योद्धा",
       impactPoints: "प्रभाव गुण",
@@ -268,6 +299,10 @@ export default function UserDashboard() {
       leaderboard: "समुदाय लीडरबोर्ड",
       viewFullLeaderboard: "संपूर्ण लीडरबोर्ड पहा",
       educationHub: "पर्यावरण शिक्षण केंद्र",
+      educationalVideos: "शैक्षणिक व्हिडिओ",
+      researchPapers: "संशोधन पत्र आणि PDF",
+      completed: "पूर्ण केले",
+      markComplete: "पूर्ण म्हणून चिन्हांकित करा",
       environmentalJourney: "माझा पर्यावरणीय प्रवास",
       today: "आज",
       daysAgo: "दिवसांपूर्वी",
@@ -304,6 +339,53 @@ export default function UserDashboard() {
 
   const handleEducationClick = (item: any) => {
     console.log("[v0] Education item clicked:", item.title)
+    if (item.type === 'pdf') {
+      // Open PDF in new tab
+      window.open(`/Education/${item.filename}`, '_blank')
+    }
+  }
+
+  const toggleCompletion = (itemId: string, item: any) => {
+    // First check if the item was already completed
+    const wasCompleted = completedItems.has(itemId);
+    
+    // Update the completedItems set
+    setCompletedItems(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId)
+      } else {
+        newSet.add(itemId)
+        
+        // If the item was not already completed, show the quiz modal
+        if (!wasCompleted && item) {
+          // Trigger quiz for newly completed item
+          setQuizMaterial({
+            id: itemId,
+            title: item.title,
+            type: item.type,
+            description: item.description
+          });
+          setQuizModalOpen(true);
+        }
+      }
+      return newSet
+    })
+  }
+  
+  const handleQuizComplete = (score: number) => {
+    // Add additional XP based on quiz score
+    const xpEarned = Math.round(score / 10); // 1-10 XP based on score percentage
+    
+    // In a real app, you would save this to the database
+    console.log(`Quiz completed with score: ${score}%`);
+    console.log(`XP earned from quiz: ${xpEarned}`);
+    
+    // Show toast or alert with the score and XP earned
+    alert(`Quiz completed with score: ${score}%! You earned ${xpEarned} XP.`);
+    
+    // Close the quiz modal
+    setQuizModalOpen(false);
   }
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -364,7 +446,7 @@ export default function UserDashboard() {
               <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
                 <User className="w-3 h-3 text-white" />
               </div>
-              <span className="text-sm font-medium">Arjun Patel</span>
+              <span className="text-sm font-medium">{user?.name || 'User'}</span>
             </div>
           </div>
         </div>
@@ -675,21 +757,230 @@ export default function UserDashboard() {
         </div>
 
         {/* Row 3: Education Hub */}
+        <div className="space-y-6">
+          {/* Educational Videos Section */}
+          <Card className="glass">
+            <CardHeader>
+              <CardTitle className="text-lg font-serif flex items-center gap-2">
+                <Play className="w-5 h-5 text-blue-600" />
+                {t.educationalVideos}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  {
+                    id: "video-1",
+                    type: "video",
+                    title: language === "en" ? "Climate Change Basics" : "जलवायु परिवर्तन मूल बातें",
+                    duration: language === "en" ? "5 min" : "5 मिनट",
+                    xp: "+5 XP",
+                    description: language === "en" ? "Understanding the fundamentals of climate change" : "जलवायु परिवर्तन की मूल बातें समझना",
+                  },
+                  {
+                    id: "video-2",
+                    type: "video", 
+                    title: language === "en" ? "Ocean Conservation" : "समुद्री संरक्षण",
+                    duration: language === "en" ? "8 min" : "8 मिनट",
+                    xp: "+8 XP",
+                    description: language === "en" ? "Protecting our marine ecosystems" : "हमारे समुद्री पारिस्थितिक तंत्र की रक्षा",
+                  },
+                  {
+                    id: "video-3",
+                    type: "video",
+                    title: language === "en" ? "Renewable Energy Solutions" : "नवीकरणीय ऊर्जा समाधान",
+                    duration: language === "en" ? "12 min" : "12 मिनट",
+                    xp: "+12 XP",
+                    description: language === "en" ? "Exploring sustainable energy alternatives" : "स्थायी ऊर्जा विकल्पों की खोज",
+                  },
+                  {
+                    id: "video-4",
+                    type: "video",
+                    title: language === "en" ? "Waste Management" : "अपशिष्ट प्रबंधन",
+                    duration: language === "en" ? "6 min" : "6 मिनट", 
+                    xp: "+6 XP",
+                    description: language === "en" ? "Effective waste reduction strategies" : "प्रभावी अपशिष्ट कमी रणनीतियां",
+                  },
+                  {
+                    id: "video-5",
+                    type: "video",
+                    title: language === "en" ? "Biodiversity Protection" : "जैव विविधता संरक्षण",
+                    duration: language === "en" ? "10 min" : "10 मिनट",
+                    xp: "+10 XP", 
+                    description: language === "en" ? "Preserving species and ecosystems" : "प्रजातियों और पारिस्थितिक तंत्र का संरक्षण",
+                  },
+                  {
+                    id: "video-6",
+                    type: "video",
+                    title: language === "en" ? "Sustainable Agriculture" : "टिकाऊ कृषि",
+                    duration: language === "en" ? "7 min" : "7 मिनट",
+                    xp: "+7 XP",
+                    description: language === "en" ? "Eco-friendly farming practices" : "पर्यावरण अनुकूल कृषि प्रथाएं",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.id}
+                    className="group p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-all cursor-pointer hover:scale-105 relative"
+                  >
+                    {completedItems.has(item.id) && (
+                      <div className="absolute top-2 right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center z-10">
+                        <CheckCircle className="w-4 h-4 text-white" />
+                      </div>
+                    )}
+                    <div 
+                      className="w-full h-24 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden"
+                      onClick={() => handleEducationClick(item)}
+                    >
+                      <Play className="w-8 h-8 text-blue-600" />
+                    </div>
+                    <h4 className="font-medium text-foreground mb-1 group-hover:text-emerald-600 transition-colors">
+                      {item.title}
+                    </h4>
+                    <p className="text-xs text-muted-foreground mb-2">{item.description}</p>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                      <span>{item.duration}</span>
+                      <Badge className="bg-emerald-100 text-emerald-700">{item.xp}</Badge>
+                    </div>
+                    <Button
+                      variant={completedItems.has(item.id) ? "secondary" : "outline"}
+                      size="sm"
+                      className="w-full"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleCompletion(item.id, item)
+                      }}
+                    >
+                      {completedItems.has(item.id) ? t.completed : t.markComplete}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Research Papers & PDFs Section */}
+          <Card className="glass">
+            <CardHeader>
+              <CardTitle className="text-lg font-serif flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-green-600" />
+                {t.researchPapers}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  {
+                    id: "pdf-1",
+                    type: "pdf",
+                    title: "Marine Conservation Strategies",
+                    filename: "1-s2.0-S0308597X14003182-main.pdf",
+                    description: "Comprehensive research on ocean protection methods",
+                    pages: "15 pages",
+                    xp: "+15 XP",
+                  },
+                  {
+                    id: "pdf-2", 
+                    type: "pdf",
+                    title: "Sustainable Development Goals",
+                    filename: "1-s2.0-S0964569123001047-main.pdf",
+                    description: "Analysis of environmental sustainability targets",
+                    pages: "22 pages",
+                    xp: "+20 XP",
+                  },
+                  {
+                    id: "pdf-3",
+                    type: "pdf",
+                    title: "Climate Change Impact Assessment",
+                    filename: "10.1002@bse.2514.pdf",
+                    description: "Business strategies for climate adaptation",
+                    pages: "18 pages", 
+                    xp: "+18 XP",
+                  },
+                  {
+                    id: "pdf-4",
+                    type: "pdf",
+                    title: "Environmental Management Systems",
+                    filename: "10.1016@j.jenvman.2005.04.004.pdf",
+                    description: "Framework for environmental management",
+                    pages: "12 pages",
+                    xp: "+12 XP",
+                  },
+                  {
+                    id: "pdf-5",
+                    type: "pdf", 
+                    title: "Conservation Biology Principles",
+                    filename: "10.1111@cobi.13252.pdf",
+                    description: "Modern approaches to biodiversity conservation",
+                    pages: "25 pages",
+                    xp: "+25 XP",
+                  },
+                  {
+                    id: "pdf-6",
+                    type: "pdf",
+                    title: "Marine Resource Management",
+                    filename: "fmars-3-1542705.pdf",
+                    description: "Frontiers in marine science research",
+                    pages: "20 pages",
+                    xp: "+20 XP",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.id}
+                    className="group p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-all cursor-pointer hover:scale-105 relative"
+                  >
+                    {completedItems.has(item.id) && (
+                      <div className="absolute top-2 right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center z-10">
+                        <CheckCircle className="w-4 h-4 text-white" />
+                      </div>
+                    )}
+                    <div 
+                      className="w-full h-24 bg-gradient-to-br from-green-100 to-blue-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden"
+                      onClick={() => handleEducationClick(item)}
+                    >
+                      <BookOpen className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h4 className="font-medium text-foreground mb-1 group-hover:text-emerald-600 transition-colors">
+                      {item.title}
+                    </h4>
+                    <p className="text-xs text-muted-foreground mb-2">{item.description}</p>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                      <span>{item.pages}</span>
+                      <Badge className="bg-emerald-100 text-emerald-700">{item.xp}</Badge>
+                    </div>
+                    <Button
+                      variant={completedItems.has(item.id) ? "secondary" : "outline"}
+                      size="sm"
+                      className="w-full"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleCompletion(item.id, item)
+                      }}
+                    >
+                      {completedItems.has(item.id) ? t.completed : t.markComplete}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Row 4: My Dashboard Timeline */}
         <Card className="glass">
           <CardHeader>
             <CardTitle className="text-lg font-serif flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-blue-600" />
-              {t.educationHub}
+              <Calendar className="w-5 h-5 text-purple-600" />
+              {t.environmentalJourney}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-4">
               {[
                 {
-                  type: "video",
-                  title:
+                  date: t.today,
+                  action:
                     language === "en"
-                      ? "Climate Change Basics"
+                      ? "Joined Beach Cleanup Initiative"
                       : language === "hi"
                         ? "जलवायु परिवर्तन मूल बातें"
                         : language === "bn"
@@ -1115,6 +1406,16 @@ export default function UserDashboard() {
             </div>
           </CardContent>
         </Card>
+        {/* Quiz Modal */}
+        <QuizModal
+          isOpen={quizModalOpen}
+          onClose={() => setQuizModalOpen(false)}
+          materialTitle={quizMaterial?.title || ''}
+          materialType={quizMaterial?.type || ''}
+          materialId={quizMaterial?.id || ''}
+          materialDescription={quizMaterial?.description}
+          onQuizComplete={handleQuizComplete}
+        />
       </main>
     </div>
   )

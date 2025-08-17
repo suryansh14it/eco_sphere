@@ -15,12 +15,14 @@ export async function authenticateUser(email: string, password: string): Promise
     // Find user by email
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
+      console.log('User not found with email:', email);
       return null;
     }
 
-    // Check password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // Check password using the method defined in the User model
+    const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
+      console.log('Password validation failed for email:', email);
       return null;
     }
 
@@ -41,11 +43,7 @@ export async function createUser(userData: any): Promise<IUser | null> {
   try {
     await connectDB();
 
-    // Hash password
-    const salt = await bcrypt.genSalt(12);
-    userData.password = await bcrypt.hash(userData.password, salt);
-    
-    // Create user
+    // Create user without hashing password here - the User model's pre-save hook will handle it
     const user = new User(userData);
     await user.save();
     

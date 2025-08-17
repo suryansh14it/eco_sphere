@@ -10,6 +10,7 @@ import ProtectedRoute from "@/components/protected-route"
 import { UserMenu } from "@/components/user-menu"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
+import { AIAnalysisModal } from "@/components/ai-analysis-modal"
 import {
   Search,
   Bell,
@@ -26,6 +27,7 @@ import {
   MoreHorizontal,
   MapPin,
   Calendar,
+  Brain,
 } from "lucide-react"
 
 const useCountUp = (end: number, duration = 1000, delay = 0) => {
@@ -81,6 +83,34 @@ export default function GovernmentDashboard() {
   const handleProjectAction = (projectId: string, action: string) => {
     console.log("[v0] Project action:", action, "for project:", projectId)
   }
+
+  // Enhanced project data with descriptions for AI analysis
+  const projectRequests = [
+    {
+      title: "Urban Forest Restoration",
+      organization: "Green Cities NGO",
+      funding: "₹1.5Cr",
+      location: "Mumbai, MH",
+      priority: "High",
+      description: "Comprehensive urban forest restoration project aimed at planting 10,000 native trees across Mumbai's residential and commercial areas. The project focuses on improving air quality, reducing urban heat island effect, and creating green corridors for wildlife. Includes community engagement programs and long-term maintenance plans."
+    },
+    {
+      title: "Marine Cleanup Initiative",
+      organization: "Ocean Guardians",
+      funding: "₹80L",
+      location: "Chennai, TN",
+      priority: "Medium",
+      description: "Large-scale marine cleanup initiative targeting plastic pollution in Chennai's coastal waters. The project includes advanced filtration systems, community beach cleanups, and educational programs for local fishing communities. Expected to clean 50 square kilometers of ocean area and remove 500 tons of plastic waste."
+    },
+    {
+      title: "Solar Panel Installation",
+      organization: "Renewable Future",
+      funding: "₹2.7Cr",
+      location: "Pune, MH",
+      priority: "High",
+      description: "Installation of solar panels across 200 government buildings and schools in Pune district. The project aims to generate 5MW of clean energy, reduce carbon emissions by 3,000 tons annually, and provide energy independence for public institutions. Includes training programs for local technicians."
+    },
+  ]
 
   const handleSidebarClick = (section: string) => {
     setActiveSection(section)
@@ -182,29 +212,7 @@ export default function GovernmentDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {[
-                      {
-                        title: "Urban Forest Restoration",
-                        organization: "Green Cities NGO",
-                        funding: "₹1.5Cr",
-                        location: "Mumbai, MH",
-                        priority: "High",
-                      },
-                      {
-                        title: "Marine Cleanup Initiative",
-                        organization: "Ocean Guardians",
-                        funding: "₹80L",
-                        location: "Chennai, TN",
-                        priority: "Medium",
-                      },
-                      {
-                        title: "Solar Panel Installation",
-                        organization: "Renewable Future",
-                        funding: "₹2.7Cr",
-                        location: "Pune, MH",
-                        priority: "High",
-                      },
-                    ].map((request, index) => (
+                    {projectRequests.map((request, index) => (
                       <div
                         key={index}
                         className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
@@ -228,6 +236,19 @@ export default function GovernmentDashboard() {
                           <Badge variant={request.priority === "High" ? "destructive" : "secondary"}>
                             {request.priority}
                           </Badge>
+                          <AIAnalysisModal projectData={request}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-2"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                              }}
+                            >
+                              <Brain className="w-4 h-4" />
+                              AI Analyse
+                            </Button>
+                          </AIAnalysisModal>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -316,29 +337,7 @@ export default function GovernmentDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {[
-                  {
-                    title: "Urban Forest Restoration",
-                    organization: "Green Cities NGO",
-                    funding: "₹1.5Cr",
-                    location: "Mumbai, MH",
-                    priority: "High",
-                  },
-                  {
-                    title: "Marine Cleanup Initiative",
-                    organization: "Ocean Guardians",
-                    funding: "₹80L",
-                    location: "Chennai, TN",
-                    priority: "Medium",
-                  },
-                  {
-                    title: "Solar Panel Installation",
-                    organization: "Renewable Future",
-                    funding: "₹2.7Cr",
-                    location: "Pune, MH",
-                    priority: "High",
-                  },
-                ].map((request, index) => (
+                {projectRequests.map((request, index) => (
                   <div
                     key={index}
                     className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
@@ -362,6 +361,19 @@ export default function GovernmentDashboard() {
                       <Badge variant={request.priority === "High" ? "destructive" : "secondary"}>
                         {request.priority}
                       </Badge>
+                      <AIAnalysisModal projectData={request}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                          }}
+                        >
+                          <Brain className="w-4 h-4" />
+                          AI Analyse
+                        </Button>
+                      </AIAnalysisModal>
                       <Button
                         variant="ghost"
                         size="sm"

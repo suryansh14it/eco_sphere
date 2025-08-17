@@ -1,0 +1,358 @@
+import { useState, useEffect } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Check, X, AlertCircle, Loader2, Trophy, Award } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+
+interface QuizQuestion {
+  id: string;
+  question: string;
+  options: {
+    id: string;
+    text: string;
+  }[];
+  correctAnswer: string;
+  explanation: string;
+}
+
+interface Quiz {
+  title: string;
+  questions: QuizQuestion[];
+}
+
+interface QuizModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  materialTitle: string;
+  materialType: string;
+  materialId: string;
+  materialDescription?: string;
+  content?: string;
+  onQuizComplete: (score: number) => void;
+}
+
+export default function QuizModal({
+  isOpen,
+  onClose,
+  materialTitle,
+  materialType,
+  materialId,
+  materialDescription,
+  content,
+  onQuizComplete
+}: QuizModalProps) {
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
+  const [currentStep, setCurrentStep] = useState<'loading' | 'quiz' | 'results'>('loading');
+  const [quizResults, setQuizResults] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Generate quiz when modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      generateQuiz();
+    }
+  }, [isOpen]);
+
+  // Reset everything when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setQuiz(null);
+      setUserAnswers({});
+      setCurrentStep('loading');
+      setQuizResults(null);
+      setError(null);
+    }
+  }, [isOpen]);
+
+  const generateQuiz = async () => {
+    setCurrentStep('loading');
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/quiz/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          materialTitle,
+          materialType,
+          content,
+          description: materialDescription
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate quiz');
+      }
+      
+      const quizData = await response.json();
+      setQuiz(quizData);
+      setCurrentStep('quiz');
+    } catch (err: any) {
+      console.error('Quiz generation error:', err);
+      setError(err.message || 'Failed to generate quiz. Please try again.');
+      setCurrentStep('quiz');
+    }
+  };
+
+  const handleAnswerSelect = (questionId: string, optionId: string) => {
+    setUserAnswers(prev => ({
+      ...prev,
+      [questionId]: optionId
+    }));
+  };
+
+  const handleSubmitQuiz = async () => {
+    if (!quiz) return;
+    
+    setIsSubmitting(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/quiz/evaluate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          quiz,
+          userAnswers
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to evaluate quiz');
+      }
+      
+      const results = await response.json();
+      setQuizResults(results);
+      setCurrentStep('results');
+      
+      // Call the parent callback with the score
+      onQuizComplete(results.score);
+    } catch (err: any) {
+      console.error('Quiz evaluation error:', err);
+      setError(err.message || 'Failed to submit quiz. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const renderQuizContent = () => {
+    if (currentStep === 'loading') {
+      return (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+          <p className="text-center text-muted-foreground">
+            Generating a quiz based on the material...
+          </p>
+        </div>
+      );
+    }
+    
+    if (error) {
+      return (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      );
+    }
+    
+    if (!quiz) {
+      return (
+        <Alert className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>No Quiz Available</AlertTitle>
+          <AlertDescription>
+            We couldn't generate a quiz for this material. Please try again later.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    
+    if (currentStep === 'quiz') {
+      return (
+        <>
+          <div className="space-y-6 mb-6">
+            {quiz.questions.map((question) => (
+              <Card key={question.id} className="shadow-sm">
+                <CardContent className="pt-6">
+                  <div className="mb-4 font-medium">{question.question}</div>
+                  <RadioGroup 
+                    value={userAnswers[question.id] || ''} 
+                    onValueChange={(value) => handleAnswerSelect(question.id, value)}
+                  >
+                    <div className="space-y-3">
+                      {question.options.map((option) => (
+                        <div key={option.id} className="flex items-center space-x-2 rounded-md border p-3 hover:bg-muted/50">
+                          <RadioGroupItem value={option.id} id={`${question.id}-${option.id}`} />
+                          <Label htmlFor={`${question.id}-${option.id}`} className="flex-grow cursor-pointer">
+                            {option.text}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </RadioGroup>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          
+          <div className="text-right">
+            <Button 
+              onClick={handleSubmitQuiz}
+              disabled={isSubmitting || Object.keys(userAnswers).length !== quiz.questions.length}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Checking Answers...
+                </>
+              ) : (
+                'Submit Answers'
+              )}
+            </Button>
+          </div>
+        </>
+      );
+    }
+    
+    if (currentStep === 'results') {
+      return (
+        <div className="space-y-8">
+          <div className="text-center p-6 border rounded-lg bg-muted/30 relative">
+            <Trophy className="w-12 h-12 text-amber-500 mx-auto mb-2" />
+            <h3 className="text-2xl font-bold mb-2">Your Score: {quizResults.score}%</h3>
+            <p className="text-muted-foreground mb-4">
+              You got {quizResults.correctAnswers} out of {quizResults.totalQuestions} questions correct
+            </p>
+            <Progress value={quizResults.score} className="h-2" />
+          </div>
+          
+          {quizResults.feedback && (
+            <div className="bg-primary/10 p-4 rounded-lg border border-primary/20">
+              <p className="italic text-sm">{quizResults.feedback}</p>
+            </div>
+          )}
+          
+          <div className="space-y-6">
+            <h3 className="font-medium">Review Your Answers</h3>
+            {quiz.questions.map((question, index) => {
+              const result = quizResults.results.find((r: any) => r.questionId === question.id);
+              const isCorrect = result?.isCorrect;
+              
+              return (
+                <div key={question.id} className="border rounded-md overflow-hidden">
+                  <div className="p-4 border-b bg-muted/30 flex items-start justify-between gap-2">
+                    <div>
+                      <span className="font-medium">Question {index + 1}:</span> {question.question}
+                    </div>
+                    <Badge variant={isCorrect ? "success" : "destructive"} className="mt-1">
+                      {isCorrect ? (
+                        <Check className="w-3 h-3 mr-1" />
+                      ) : (
+                        <X className="w-3 h-3 mr-1" />
+                      )}
+                      {isCorrect ? "Correct" : "Incorrect"}
+                    </Badge>
+                  </div>
+                  
+                  <div className="p-4 space-y-3">
+                    {question.options.map((option) => {
+                      const isUserAnswer = result?.userAnswer === option.id;
+                      const isCorrectAnswer = question.correctAnswer === option.id;
+                      
+                      let optionClass = "flex items-center p-3 rounded-md";
+                      if (isUserAnswer) {
+                        optionClass += isCorrectAnswer 
+                          ? " bg-green-50 border border-green-200" 
+                          : " bg-red-50 border border-red-200";
+                      } else if (isCorrectAnswer) {
+                        optionClass += " bg-blue-50 border border-blue-200";
+                      } else {
+                        optionClass += " border";
+                      }
+                      
+                      return (
+                        <div key={option.id} className={optionClass}>
+                          <div className="mr-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border">
+                            {isUserAnswer && <span className="h-2.5 w-2.5 rounded-full bg-current" />}
+                          </div>
+                          <div className="flex-grow">{option.text}</div>
+                          {isCorrectAnswer && <Check className="h-5 w-5 text-green-600" />}
+                          {isUserAnswer && !isCorrectAnswer && <X className="h-5 w-5 text-red-600" />}
+                        </div>
+                      );
+                    })}
+                    
+                    {question.explanation && (
+                      <div className="mt-3 p-3 bg-blue-50 text-sm rounded-md border border-blue-100">
+                        <span className="font-medium">Explanation:</span> {question.explanation}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            <div className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-primary" />
+              {currentStep === 'results' ? 'Quiz Results' : `Quiz: ${materialTitle}`}
+            </div>
+          </DialogTitle>
+          <DialogDescription>
+            {currentStep === 'results' 
+              ? 'Review your answers and see how you did!'
+              : `Test your knowledge on this ${materialType}.`
+            }
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-4">
+          {renderQuizContent()}
+        </div>
+
+        <DialogFooter>
+          {currentStep === 'results' ? (
+            <Button onClick={onClose}>Close</Button>
+          ) : (
+            <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
