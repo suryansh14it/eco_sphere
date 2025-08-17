@@ -3,6 +3,8 @@ import type { Metadata } from "next"
 import { DM_Sans } from "next/font/google"
 import "./globals.css"
 import { PageTransitionProvider } from "@/components/page-transition-provider"
+import { AuthProvider } from "@/components/auth-provider"
+import { Toaster } from "@/components/ui/sonner"
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -25,7 +27,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${dmSans.variable} antialiased`}>
       <body className="font-sans">
-        <PageTransitionProvider>{children}</PageTransitionProvider>
+        <AuthProvider>
+          <PageTransitionProvider>{children}</PageTransitionProvider>
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   )

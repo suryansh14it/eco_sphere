@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/components/auth-provider"
 import {
   Search,
   Bell,
@@ -30,11 +32,46 @@ import {
   Settings,
   Home,
 } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 export default function NGODashboard() {
   const [expandedProject, setExpandedProject] = useState<number | null>(null)
   const [activeSection, setActiveSection] = useState("dashboard")
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    } else if (!loading && user && user.role !== 'ngo') {
+      router.push(`/${user.role}`);
+    }
+  }, [user, loading, router]);
+
+  // If still loading or not authenticated, show loading
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-violet-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-lg text-purple-700">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If wrong role, redirect
+  if (user.role !== 'ngo') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-violet-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-lg text-purple-700">Redirecting to appropriate dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-violet-50">

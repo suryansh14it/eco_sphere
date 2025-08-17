@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowRight, Users, Globe, Leaf, Droplets, TreePine, Sparkles, TrendingUp } from "lucide-react"
+import { useAuth } from "@/components/auth-provider"
 
 const useCountUp = (end: number, duration = 1000, delay = 0) => {
   const [count, setCount] = useState(0)
@@ -53,6 +54,8 @@ const useScrollReveal = () => {
 
 export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false)
+  const { user, loading } = useAuth()
+  
   const treesCount = useCountUp(1200000, 400, 0)
   const waterCount = useCountUp(500000, 300, 100)
   const countriesCount = useCountUp(45, 250, 200)

@@ -5,13 +5,40 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Leaf, Shield, BarChart3, Users, TreePine, ArrowRight, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useAuth } from "@/components/auth-provider"
+import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
   const [selectedRole, setSelectedRole] = useState<string>("")
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  
+  const { login, user, loading } = useAuth()
+  const router = useRouter()
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace(`/${user.role}`)
+    }
+  }, [user, loading, router])
+
+  // Don't render login form if user is already logged in
+  if (loading) {
+    return <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-blue-50 flex items-center justify-center">
+      <div className="text-center">Loading...</div>
+    </div>
+  }
+
+  if (user) {
+    return <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-blue-50 flex items-center justify-center">
+      <div className="text-center">Redirecting to dashboard...</div>
+    </div>
+  }
 
   const roles = [
     {
@@ -48,12 +75,20 @@ export default function LoginPage() {
     },
   ]
 
-  const handleLogin = () => {
-    if (selectedRole && email && password) {
-      const role = roles.find((r) => r.id === selectedRole)
-      if (role) {
-        window.location.href = role.route
-      }
+  const handleLogin = async () => {
+    if (!email || !password) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await login(email, password);
+      toast.success("Login successful! Redirecting...");
+    } catch (error: any) {
+      toast.error(error.message || "Login failed");
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -148,10 +183,10 @@ export default function LoginPage() {
             {/* Sign In Button */}
             <Button
               onClick={handleLogin}
-              disabled={!selectedRole || !email || !password}
+              disabled={!email || !password || isLoading}
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
             >
-              Sign In
+              {isLoading ? "Signing In..." : "Sign In"}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
 

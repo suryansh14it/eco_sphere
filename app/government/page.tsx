@@ -6,6 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import ProtectedRoute from "@/components/protected-route"
+import { UserMenu } from "@/components/user-menu"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/components/auth-provider"
 import {
   Search,
   Bell,
@@ -577,6 +581,42 @@ export default function GovernmentDashboard() {
     }
   }
 
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    } else if (!loading && user && user.role !== 'government') {
+      router.push(`/${user.role}`);
+    }
+  }, [user, loading, router]);
+
+  // If still loading or not authenticated, show loading
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-lg text-blue-700">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If wrong role, redirect
+  if (user.role !== 'government') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-lg text-blue-700">Redirecting to appropriate dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
       <header className="sticky top-0 z-50 glass border-b">
@@ -610,9 +650,7 @@ export default function GovernmentDashboard() {
               <Bell className="w-4 h-4" />
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => console.log("[v0] Profile clicked")}>
-              <User className="w-4 h-4" />
-            </Button>
+            <UserMenu />
           </div>
         </div>
       </header>

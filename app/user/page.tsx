@@ -4,8 +4,10 @@ import type React from "react"
 import Link from "next/link"
 import { AlertTriangle } from "lucide-react"
 import { ChevronDown } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/components/auth-provider"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -38,6 +40,41 @@ export default function UserDashboard() {
   const [issueDescription, setIssueDescription] = useState("")
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [language, setLanguage] = useState<"en" | "hi" | "bn" | "ta" | "te" | "mr">("en")
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    } else if (!loading && user && user.role !== 'user') {
+      router.push(`/${user.role}`);
+    }
+  }, [user, loading, router]);
+
+  // If still loading or not authenticated, show loading
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-green-50 to-lime-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-lg text-green-700">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If wrong role, redirect
+  if (user.role !== 'user') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-green-50 to-lime-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-lg text-green-700">Redirecting to appropriate dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   const translations = {
     en: {
