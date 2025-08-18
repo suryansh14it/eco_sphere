@@ -62,8 +62,6 @@ export default function QuizModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [displayScore, setDisplayScore] = useState(0);
-  const [showMarks, setShowMarks] = useState(true);
-  const [showAnimation, setShowAnimation] = useState(false);
 
   // Generate quiz when modal is opened
   useEffect(() => {
@@ -81,8 +79,6 @@ export default function QuizModal({
       setQuizResults(null);
       setError(null);
       setDisplayScore(0);
-      setShowMarks(true);
-      setShowAnimation(false);
     }
   }, [isOpen]);
 
@@ -108,19 +104,6 @@ export default function QuizModal({
       return () => clearInterval(timer);
     }
   }, [quizResults, currentStep]);
-  
-  // Handle marks and animation phases
-  useEffect(() => {
-    if (currentStep === 'results') {
-      // First show marks, then trigger animation after a delay
-      const marksTimer = setTimeout(() => {
-        setShowMarks(false);
-        setShowAnimation(true);
-      }, 2500); // Show marks for 2.5 seconds
-      
-      return () => clearTimeout(marksTimer);
-    }
-  }, [currentStep]);
 
   const generateQuiz = async () => {
     try {
@@ -279,7 +262,8 @@ export default function QuizModal({
       );
     }
     
-    if (currentStep === 'results' && quizResults) {
+    if (currentStep === 'results') {
+
       const scoreClassName = quizResults.score >= 70 
         ? "text-green-600" 
         : quizResults.score >= 50 
@@ -355,6 +339,7 @@ export default function QuizModal({
               </div>
             </div>
           )}
+          </div>
           
           {quizResults.feedback && (
             <div className="bg-primary/10 p-4 rounded-lg border border-primary/20">
@@ -364,7 +349,7 @@ export default function QuizModal({
           
           <div className="space-y-6">
             <h3 className="font-medium">Review Your Answers</h3>
-            {quiz && quiz.questions.map((question, index) => {
+            {quiz.questions.map((question, index) => {
               const result = quizResults.results.find((r: any) => r.questionId === question.id);
               const isCorrect = result?.isCorrect;
               

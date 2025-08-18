@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
+import { UserMenu } from "@/components/user-menu"
 import {
   Search,
   Bell,
@@ -104,9 +105,7 @@ export default function NGODashboard() {
               <Bell className="w-4 h-4" />
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-purple-500 rounded-full"></span>
             </Button>
-            <Button variant="ghost" size="sm">
-              <User className="w-4 h-4" />
-            </Button>
+            <UserMenu />
           </div>
         </div>
       </header>
@@ -186,10 +185,10 @@ export default function NGODashboard() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">Ongoing Projects</p>
-                        <p className="text-2xl font-bold text-purple-600">23</p>
+                        <p className="text-2xl font-bold text-purple-600">42</p>
                         <p className="text-xs text-emerald-600 flex items-center mt-1">
                           <TrendingUp className="w-3 h-3 mr-1" />
-                          +3 this month
+                          +8 this month
                         </p>
                       </div>
                       <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
@@ -204,10 +203,10 @@ export default function NGODashboard() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">Active Volunteers</p>
-                        <p className="text-2xl font-bold text-pink-600">342</p>
+                        <p className="text-2xl font-bold text-pink-600">1,275</p>
                         <p className="text-xs text-emerald-600 flex items-center mt-1">
                           <TrendingUp className="w-3 h-3 mr-1" />
-                          +28 this week
+                          +93 this week
                         </p>
                       </div>
                       <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center">
@@ -222,10 +221,10 @@ export default function NGODashboard() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">Funding Raised</p>
-                        <p className="text-2xl font-bold text-emerald-600">₹15.2Cr</p>
+                        <p className="text-2xl font-bold text-emerald-600">₹28.7Cr</p>
                         <p className="text-xs text-emerald-600 flex items-center mt-1">
                           <TrendingUp className="w-3 h-3 mr-1" />
-                          +15% this quarter
+                          +22% this quarter
                         </p>
                       </div>
                       <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
@@ -240,10 +239,10 @@ export default function NGODashboard() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">Partnerships</p>
-                        <p className="text-2xl font-bold text-blue-600">18</p>
+                        <p className="text-2xl font-bold text-blue-600">36</p>
                         <p className="text-xs text-emerald-600 flex items-center mt-1">
                           <TrendingUp className="w-3 h-3 mr-1" />
-                          +2 new partners
+                          +5 new partners
                         </p>
                       </div>
                       <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
@@ -266,34 +265,44 @@ export default function NGODashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
                       {
-                        project: "Beach Cleanup Success",
-                        author: "Sunita Rao",
-                        role: "Volunteer Coordinator",
+                        project: "Versova Beach Transformation",
+                        author: "Afroz Shah",
+                        role: "Project Leader",
                         feedback:
-                          "Amazing turnout! We collected over 500kg of waste and educated 200+ beachgoers about marine conservation.",
+                          "Our Versova Beach cleanup has removed over 9 million kg of plastic waste and transformed what was once called 'garbage beach'. We now have Olive Ridley turtles nesting here after 20 years!",
                         rating: 5,
-                        date: "2 days ago",
+                        date: "3 days ago",
                         image: "beach",
                       },
                       {
-                        project: "Solar Panel Installation",
-                        author: "Kiran Desai",
-                        role: "Community Leader",
+                        project: "Sundarbans Mangrove Restoration",
+                        author: "Priya Mondal",
+                        role: "Community Coordinator",
                         feedback:
-                          "The solar installation project exceeded expectations. We're now generating 40% of our community center's energy needs.",
+                          "Our community-led mangrove restoration has planted 50,000+ saplings across 25 hectares. Local fishing families report 30% increase in catch due to improved marine ecosystems.",
                         rating: 5,
                         date: "1 week ago",
-                        image: "solar",
+                        image: "mangrove",
                       },
                       {
-                        project: "Urban Garden Initiative",
-                        author: "Lakshmi Pillai",
-                        role: "Local Resident",
+                        project: "Ladakh Artificial Glacier",
+                        author: "Sonam Wangchuk",
+                        role: "Project Engineer",
                         feedback:
-                          "The community garden has brought neighbors together and provides fresh produce for 50+ families. Truly transformative!",
-                        rating: 4,
+                          "Our ice stupa artificial glaciers have provided 2 million liters of water to 5 villages during crucial spring planting season. Crop yields have increased by 40% this year!",
+                        rating: 5,
                         date: "2 weeks ago",
-                        image: "garden",
+                        image: "glacier",
+                      },
+                      {
+                        project: "Sikkim Organic Farming Transition",
+                        author: "Tenzin Lepcha",
+                        role: "Regional Coordinator",
+                        feedback:
+                          "100% organic certification achieved across 12 villages! Farmers report 25% premium on their produce and soil health has dramatically improved with 18% higher nutrient content.",
+                        rating: 5,
+                        date: "3 weeks ago",
+                        image: "farm",
                       },
                     ].map((feedback, index) => (
                       <div key={index} className="p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
@@ -348,37 +357,59 @@ export default function NGODashboard() {
                 <div className="space-y-4">
                   {[
                     {
-                      title: "Urban Air Quality Monitoring Network",
-                      researcher: "Dr. Priya Sharma - Environmental Science Institute",
+                      title: "Delhi-NCR Air Quality Monitoring Network",
+                      researcher: "Dr. Priya Sharma - IIT Delhi Environmental Science Department",
                       status: "Active",
-                      funding: "₹3.8Cr",
-                      volunteers: 45,
+                      funding: "₹4.8Cr",
+                      volunteers: 85,
                       description:
-                        "Comprehensive air quality monitoring system across 15 urban locations with real-time data collection and community engagement.",
-                      timeline: "18 months",
-                      impact: "Monitoring 2.5M residents",
-                    },
-                    {
-                      title: "Coastal Erosion Prevention Initiative",
-                      researcher: "Prof. Rajesh Menon - Marine Research Center",
-                      status: "Planning",
-                      funding: "₹2.7Cr",
-                      volunteers: 28,
-                      description:
-                        "Community-based coastal protection using natural barriers and sustainable engineering solutions.",
+                        "Comprehensive air quality monitoring system across 35 locations in Delhi-NCR with real-time data collection, pollution source identification, and community-driven mitigation strategies.",
                       timeline: "24 months",
-                      impact: "Protecting 12km coastline",
+                      impact: "Monitoring 18.6M residents",
                     },
                     {
-                      title: "Biodiversity Conservation Program",
-                      researcher: "Dr. Anjali Krishnan - Wildlife Conservation Lab",
-                      status: "Active",
-                      funding: "₹5.7Cr",
-                      volunteers: 67,
+                      title: "Odisha Coastal Erosion Prevention",
+                      researcher: "Prof. Rajesh Menon - National Institute of Ocean Technology",
+                      status: "Planning",
+                      funding: "₹5.4Cr",
+                      volunteers: 42,
                       description:
-                        "Multi-species conservation effort focusing on habitat restoration and community education.",
+                        "Community-based coastal protection using mangrove restoration, eco-engineered seawalls, and natural sediment trapping systems to protect vulnerable Odisha coastal villages.",
                       timeline: "36 months",
-                      impact: "Protecting 15 species",
+                      impact: "Protecting 32km coastline",
+                    },
+                    {
+                      title: "Western Ghats Biodiversity Conservation",
+                      researcher: "Dr. Anjali Krishnan - Wildlife Institute of India",
+                      status: "Active",
+                      funding: "₹7.2Cr",
+                      volunteers: 127,
+                      description:
+                        "Multi-species conservation program focusing on 24 endemic and endangered species across the Western Ghats biodiversity hotspot through habitat corridor restoration and anti-poaching initiatives.",
+                      timeline: "48 months",
+                      impact: "Protecting 35 species",
+                    },
+                    {
+                      title: "Himalayan Glacial Lake Monitoring",
+                      researcher: "Dr. Vikram Singh - Wadia Institute of Himalayan Geology",
+                      status: "Active",
+                      funding: "₹6.7Cr",
+                      volunteers: 52,
+                      description:
+                        "Advanced remote sensing and on-ground monitoring of 18 critical glacial lakes in Uttarakhand to develop early warning systems for Glacial Lake Outburst Floods (GLOFs).",
+                      timeline: "36 months",
+                      impact: "Protecting 32 downstream villages",
+                    },
+                    {
+                      title: "Ganges River Pollution Remediation",
+                      researcher: "Prof. Meenakshi Chatterjee - National Environmental Engineering Research Institute",
+                      status: "Planning",
+                      funding: "₹8.5Cr",
+                      volunteers: 215,
+                      description:
+                        "Comprehensive pollution mapping, bioremediation deployment, and wastewater treatment technology implementation across critical stretches of the Ganges river.",
+                      timeline: "60 months",
+                      impact: "Improving water for 70M people",
                     },
                   ].map((project, index) => (
                     <div key={index} className="border border-border/20 rounded-lg p-4 bg-muted/20">

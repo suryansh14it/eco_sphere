@@ -62,8 +62,6 @@ export default function QuizModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [displayScore, setDisplayScore] = useState(0);
-  const [showMarks, setShowMarks] = useState(true);
-  const [showAnimation, setShowAnimation] = useState(false);
 
   // Generate quiz when modal is opened
   useEffect(() => {
@@ -81,8 +79,6 @@ export default function QuizModal({
       setQuizResults(null);
       setError(null);
       setDisplayScore(0);
-      setShowMarks(true);
-      setShowAnimation(false);
     }
   }, [isOpen]);
 
@@ -108,19 +104,6 @@ export default function QuizModal({
       return () => clearInterval(timer);
     }
   }, [quizResults, currentStep]);
-  
-  // Handle marks and animation phases
-  useEffect(() => {
-    if (currentStep === 'results') {
-      // First show marks, then trigger animation after a delay
-      const marksTimer = setTimeout(() => {
-        setShowMarks(false);
-        setShowAnimation(true);
-      }, 2500); // Show marks for 2.5 seconds
-      
-      return () => clearTimeout(marksTimer);
-    }
-  }, [currentStep]);
 
   const generateQuiz = async () => {
     try {
@@ -279,82 +262,55 @@ export default function QuizModal({
       );
     }
     
-    if (currentStep === 'results' && quizResults) {
+    if (currentStep === 'results') {
       const scoreClassName = quizResults.score >= 70 
         ? "text-green-600" 
         : quizResults.score >= 50 
           ? "text-amber-600" 
           : "text-red-600";
-      
-      const scoreBackgroundClass = quizResults.score >= 70 
-        ? "bg-green-50 border-green-200" 
-        : quizResults.score >= 50 
-          ? "bg-amber-50 border-amber-200" 
-          : "bg-red-50 border-red-200";
             
       return (
         <div className="space-y-8">
-          {showMarks && (
-            <div className={`text-center p-8 border-2 rounded-xl ${scoreBackgroundClass} relative overflow-hidden mb-6`}>
-              <div className="flex flex-col items-center justify-center gap-4">
-                <div className="text-6xl font-bold mb-2 flex items-center">
-                  <span className={scoreClassName}>{quizResults.score}</span>
-                  <span className="text-3xl text-gray-400 ml-1">%</span>
-                </div>
-                
-                <div className="text-2xl font-medium">
-                  <span className="text-muted-foreground">You got </span>
-                  <span className={`${scoreClassName} font-bold`}>{quizResults.correctAnswers}</span>
-                  <span className="text-muted-foreground"> out of </span>
-                  <span className={`${scoreClassName} font-bold`}>{quizResults.totalQuestions}</span>
-                  <span className="text-muted-foreground"> marks</span>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {showAnimation && (
-            <div className="text-center p-8 border rounded-lg bg-muted/30 relative overflow-hidden">
-              <div className={`absolute inset-0 bg-gradient-to-br opacity-10 ${
+          <div className="text-center p-8 border rounded-lg bg-muted/30 relative overflow-hidden">
+            <div className={`absolute inset-0 bg-gradient-to-br opacity-10 ${
+              quizResults.score >= 70 
+                ? "from-green-300 to-green-500" 
+                : quizResults.score >= 50 
+                  ? "from-amber-300 to-amber-500" 
+                  : "from-red-300 to-red-500"
+            }`} />
+            
+            <div className="relative">
+              <Trophy className={`w-16 h-16 mx-auto mb-4 ${
                 quizResults.score >= 70 
-                  ? "from-green-300 to-green-500" 
-                  : quizResults.score >= 50 
-                    ? "from-amber-300 to-amber-500" 
-                    : "from-red-300 to-red-500"
+                  ? "text-yellow-500 animate-bounce" 
+                  : "text-slate-400"
               }`} />
               
-              <div className="relative">
-                <Trophy className={`w-16 h-16 mx-auto mb-4 ${
-                  quizResults.score >= 70 
-                    ? "text-yellow-500 animate-bounce" 
-                    : "text-slate-400"
-                }`} />
-                
-                <h3 className="text-4xl font-bold mb-2">
-                  <span className={scoreClassName}>{displayScore}%</span>
-                </h3>
-                
-                <div className="flex items-center justify-center gap-1 text-lg font-medium mb-6">
-                  <span className="text-muted-foreground">You got</span>
-                  <span className={scoreClassName}>{quizResults.correctAnswers}</span>
-                  <span className="text-muted-foreground">out of</span>
-                  <span className={scoreClassName}>{quizResults.totalQuestions}</span>
-                  <span className="text-muted-foreground">correct</span>
-                </div>
+              <h3 className="text-4xl font-bold mb-2">
+                <span className={scoreClassName}>{displayScore}%</span>
+              </h3>
               
-                <Progress 
-                  value={displayScore} 
-                  className={`h-3 ${
-                    quizResults.score >= 70 
-                      ? "bg-green-100" 
-                      : quizResults.score >= 50 
-                        ? "bg-amber-100" 
-                        : "bg-red-100"
-                  }`}
-                />
+              <div className="flex items-center justify-center gap-1 text-lg font-medium mb-6">
+                <span className="text-muted-foreground">You got</span>
+                <span className={scoreClassName}>{quizResults.correctAnswers}</span>
+                <span className="text-muted-foreground">out of</span>
+                <span className={scoreClassName}>{quizResults.totalQuestions}</span>
+                <span className="text-muted-foreground">correct</span>
               </div>
+              
+              <Progress 
+                value={displayScore} 
+                className={`h-3 ${
+                  quizResults.score >= 70 
+                    ? "bg-green-100" 
+                    : quizResults.score >= 50 
+                      ? "bg-amber-100" 
+                      : "bg-red-100"
+                }`}
+              />
             </div>
-          )}
+          </div>
           
           {quizResults.feedback && (
             <div className="bg-primary/10 p-4 rounded-lg border border-primary/20">
@@ -364,7 +320,7 @@ export default function QuizModal({
           
           <div className="space-y-6">
             <h3 className="font-medium">Review Your Answers</h3>
-            {quiz && quiz.questions.map((question, index) => {
+            {quiz.questions.map((question, index) => {
               const result = quizResults.results.find((r: any) => r.questionId === question.id);
               const isCorrect = result?.isCorrect;
               

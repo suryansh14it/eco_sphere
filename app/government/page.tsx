@@ -61,14 +61,14 @@ export default function GovernmentDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeSection, setActiveSection] = useState("dashboard")
 
-  const activeProjectsCount = useCountUp(47, 800, 100)
-  const pendingRequestsCount = useCountUp(12, 600, 200)
-  const fundingCount = useCountUp(2.4, 1000, 300)
-  const co2Count = useCountUp(1250, 1200, 400)
+  const activeProjectsCount = useCountUp(142, 800, 100)
+  const pendingRequestsCount = useCountUp(37, 600, 200)
+  const fundingCount = useCountUp(5.7, 1000, 300)
+  const co2Count = useCountUp(2850, 1200, 400)
 
-  const carbonReductionCount = useCountUp(1250, 1000, 0)
-  const speciesCount = useCountUp(23, 800, 0)
-  const oceanAreaCount = useCountUp(450, 1000, 0)
+  const carbonReductionCount = useCountUp(2850, 1000, 0)
+  const speciesCount = useCountUp(47, 800, 0)
+  const oceanAreaCount = useCountUp(780, 1000, 0)
 
   const handleSearch = (query: string) => {
     setSearchQuery(query)
@@ -110,6 +110,38 @@ export default function GovernmentDashboard() {
       priority: "High",
       description: "Installation of solar panels across 200 government buildings and schools in Pune district. The project aims to generate 5MW of clean energy, reduce carbon emissions by 3,000 tons annually, and provide energy independence for public institutions. Includes training programs for local technicians."
     },
+    {
+      title: "Himalayan Glacier Monitoring",
+      organization: "Himalayan Ecosystem Studies",
+      funding: "₹3.8Cr",
+      location: "Shimla, HP",
+      priority: "High",
+      description: "Implementation of advanced remote sensing technology to monitor glacial retreat in the Himalayan region. The project will track 15 major glaciers, analyze meltwater patterns, and develop early warning systems for glacial lake outburst floods (GLOFs). Includes training of local communities and creation of disaster response protocols."
+    },
+    {
+      title: "Sustainable Fishery Development",
+      organization: "Coastal Communities Alliance",
+      funding: "₹1.2Cr",
+      location: "Kochi, KL",
+      priority: "Medium",
+      description: "Comprehensive program to transform traditional fishing practices into sustainable operations along Kerala's coast. Includes deployment of selective fishing gear, establishment of no-fishing zones, training on sustainable harvesting methods, and direct market linkages to ensure fair prices for fisher communities."
+    },
+    {
+      title: "Rural Solar Microgrids",
+      organization: "Energy Access India",
+      funding: "₹4.5Cr",
+      location: "Ranchi, JH",
+      priority: "High",
+      description: "Development of solar microgrids in 75 off-grid villages in Jharkhand, providing renewable electricity to approximately 15,000 residents. The project includes installation of 3MW decentralized solar capacity, battery storage systems, mini-distribution networks, and training of local technicians for maintenance and operations."
+    },
+    {
+      title: "Western Ghats Biodiversity Conservation",
+      organization: "Forest Guardians Network",
+      funding: "₹2.2Cr",
+      location: "Coimbatore, TN",
+      priority: "Medium",
+      description: "Integrated conservation initiative in the Western Ghats focusing on protecting endemic species and their habitats. The project combines scientific research, anti-poaching patrols, habitat restoration, and community-based conservation. Targets protection of 25 endangered species through collaborative efforts with local tribal communities."
+    }
   ]
 
   const handleSidebarClick = (section: string) => {
@@ -428,26 +460,54 @@ export default function GovernmentDashboard() {
               <div className="space-y-4">
                 {[
                   {
-                    title: "Renewable Energy Grid",
-                    progress: 65,
-                    funding: "₹10Cr",
-                    deadline: "Dec 2024",
+                    title: "National Solar Mission Phase III",
+                    progress: 72,
+                    funding: "₹24.5Cr",
+                    deadline: "Mar 2025",
                     status: "On Track",
                   },
                   {
-                    title: "Wetland Restoration",
-                    progress: 40,
-                    funding: "₹7.1Cr",
-                    deadline: "Mar 2025",
+                    title: "Yamuna Floodplain Restoration",
+                    progress: 45,
+                    funding: "₹12.8Cr",
+                    deadline: "Jul 2025",
                     status: "Delayed",
                   },
                   {
-                    title: "Air Quality Monitoring",
-                    progress: 90,
-                    funding: "₹2.7Cr",
+                    title: "National Clean Air Programme - Delhi Phase",
+                    progress: 88,
+                    funding: "₹18.6Cr",
+                    deadline: "Dec 2024",
+                    status: "Ahead",
+                  },
+                  {
+                    title: "Namami Gange - Varanasi Segment",
+                    progress: 65,
+                    funding: "₹32.7Cr",
+                    deadline: "Apr 2025",
+                    status: "On Track",
+                  },
+                  {
+                    title: "Sustainable Himalayan Ecosystem Initiative",
+                    progress: 51,
+                    funding: "₹27.5Cr",
+                    deadline: "Sep 2025",
+                    status: "On Track",
+                  },
+                  {
+                    title: "Kutch Mangrove Restoration Project",
+                    progress: 92,
+                    funding: "₹8.4Cr",
                     deadline: "Nov 2024",
                     status: "Ahead",
                   },
+                  {
+                    title: "Tamil Nadu Coastal Zone Protection",
+                    progress: 37,
+                    funding: "₹16.2Cr",
+                    deadline: "Aug 2025",
+                    status: "Delayed",
+                  }
                 ].map((project, index) => (
                   <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
                     <div className="flex-1">
@@ -499,23 +559,41 @@ export default function GovernmentDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
                   {
-                    title: "Solar Farm Installation",
-                    impact: "500 tons CO₂ saved",
-                    funding: "₹17.5Cr",
-                    completion: "Oct 2024",
+                    title: "Rewa Ultra Mega Solar Project",
+                    impact: "1.8 million tons CO₂ saved annually",
+                    funding: "₹45.5Cr",
+                    completion: "Jul 2025",
                   },
                   {
-                    title: "River Cleanup Project",
-                    impact: "15km waterway restored",
-                    funding: "₹3.8Cr",
-                    completion: "Sep 2024",
+                    title: "Ganga River Pollution Monitoring Network",
+                    impact: "125km waterway monitored with real-time data",
+                    funding: "₹28.7Cr",
+                    completion: "May 2025",
                   },
                   {
-                    title: "Urban Tree Planting",
-                    impact: "2,000 trees planted",
-                    funding: "₹1.5Cr",
-                    completion: "Aug 2024",
+                    title: "Delhi Green Belt Expansion",
+                    impact: "1.2 million trees planted across NCR",
+                    funding: "₹14.2Cr",
+                    completion: "Jun 2025",
                   },
+                  {
+                    title: "Kaziranga Wildlife Corridor Protection",
+                    impact: "4 endangered species habitats connected",
+                    funding: "₹22.6Cr",
+                    completion: "Apr 2025",
+                  },
+                  {
+                    title: "Kochi Sustainable Fisheries Management",
+                    impact: "35% increase in fish stocks, 1200 fishermen benefited",
+                    funding: "₹9.8Cr",
+                    completion: "Mar 2025",
+                  },
+                  {
+                    title: "Sundarbans Climate Adaptation Initiative",
+                    impact: "85 villages protected from flooding, 30km embankments",
+                    funding: "₹37.2Cr",
+                    completion: "Feb 2025",
+                  }
                 ].map((project, index) => (
                   <div key={index} className="p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
                     <div className="w-full h-24 bg-gradient-to-br from-emerald-100 to-cyan-100 rounded-lg mb-3 flex items-center justify-center">

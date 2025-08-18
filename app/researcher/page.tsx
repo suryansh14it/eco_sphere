@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
+import { UserMenu } from "@/components/user-menu"
 import {
   Search,
   Bell,
@@ -93,9 +94,7 @@ export default function ResearcherDashboard() {
               <Bell className="w-4 h-4" />
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </Button>
-            <Button variant="ghost" size="sm">
-              <User className="w-4 h-4" />
-            </Button>
+            <UserMenu />
           </div>
         </div>
       </header>
