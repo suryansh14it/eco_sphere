@@ -550,7 +550,7 @@ export default function UserDashboard() {
 
         {/* Main Content */}
         <main className="flex-1 p-6 space-y-6">
-        {/* Hero Header with Welcome Message */}
+        {/* Hero Header with Welcome Message - Always visible */}
         <div className="glass-strong rounded-3xl p-8 text-center relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-green-500/10" />
           <div className="relative z-10">
@@ -1521,6 +1521,7 @@ export default function UserDashboard() {
           onComplete={() => setShowXpAnimation(false)} 
         />
       </main>
+    </div>
     </div>
   )
 }

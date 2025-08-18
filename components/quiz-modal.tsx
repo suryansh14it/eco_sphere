@@ -64,6 +64,7 @@ export default function QuizModal({
   const [displayScore, setDisplayScore] = useState(0);
   const [showMarks, setShowMarks] = useState(true);
   const [showAnimation, setShowAnimation] = useState(false);
+  
 
   // Generate quiz when modal is opened
   useEffect(() => {
@@ -188,8 +189,8 @@ export default function QuizModal({
       setQuizResults(results);
       setCurrentStep('results');
       
-      // Call the parent callback with the score
-      onQuizComplete(results.score);
+      // Don't call onQuizComplete immediately - wait for user to see results
+      // onQuizComplete will be called when user clicks "Complete" button
     } catch (err: any) {
       console.error('Quiz evaluation error:', err);
       setError(err.message || 'Failed to submit quiz. Please try again.');
@@ -341,6 +342,24 @@ export default function QuizModal({
                   <span className={scoreClassName}>{quizResults.totalQuestions}</span>
                   <span className="text-muted-foreground">correct</span>
                 </div>
+                
+                {/* XP Preview */}
+                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <div className="text-sm text-emerald-700 font-medium">
+                    🎉 You'll earn: <span className="font-bold">
+                      {(() => {
+                        const baseXP = 10;
+                        const scoreBonus = Math.floor((quizResults.score / 100) * 25);
+                        const perfectBonus = quizResults.score === 100 ? 10 : 0;
+                        return baseXP + scoreBonus + perfectBonus;
+                      })()} XP
+                    </span>
+                  </div>
+                  <div className="text-xs text-emerald-600 mt-1">
+                    Base: 10 XP + Score bonus: {Math.floor((quizResults.score / 100) * 25)} XP
+                    {quizResults.score === 100 && " + Perfect score bonus: 10 XP"}
+                  </div>
+                </div>
               
                 <Progress 
                   value={displayScore} 
@@ -453,7 +472,25 @@ export default function QuizModal({
 
         <DialogFooter>
           {currentStep === 'results' ? (
-            <Button onClick={onClose}>Close</Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={onClose}
+              >
+                Close
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (quizResults) {
+                    onQuizComplete(quizResults.score);
+                    onClose();
+                  }
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                Complete Quiz & Earn XP
+              </Button>
+            </div>
           ) : (
             <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
               Cancel

@@ -1,6 +1,19 @@
 import mongoose, { Document, Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+export interface IActivityEvent {
+  eventType: 'quiz_completion' | 'project_joined' | 'tree_planted' | 'issue_reported' | 'educational_content' | 'community_event';
+  description: string;
+  xpEarned: number;
+  environmentalImpact?: {
+    treesPlanted?: number;
+    co2Offset?: number;
+    waterSaved?: number;
+  };
+  timestamp: Date;
+  relatedItemId?: string;
+}
+
 export interface IUser extends Document {
   _id: string;
   email: string;
@@ -8,6 +21,18 @@ export interface IUser extends Document {
   name: string;
   role: 'government' | 'researcher' | 'user' | 'ngo';
   isVerified: boolean;
+  
+  // User progression fields
+  xpPoints: number;
+  level: number;
+  activityHistory: IActivityEvent[];
+  environmentalImpact: {
+    treesPlanted: number;
+    co2Offset: number;
+    waterSaved: number;
+  };
+  achievements: string[];
+  completedItems: string[];
   
   // Role-specific fields
   // Government Official
@@ -38,6 +63,8 @@ export interface IUser extends Document {
   updatedAt: Date;
   
   comparePassword(candidatePassword: string): Promise<boolean>;
+  addXP(amount: number, activityData: Partial<IActivityEvent>): Promise<IUser>;
+  completeItem(itemId: string): Promise<boolean>;
 }
 
 const userSchema = new mongoose.Schema<IUser>({
@@ -138,6 +165,61 @@ const userSchema = new mongoose.Schema<IUser>({
     type: String
   }],
   
+  // User progression fields
+  xpPoints: {
+    type: Number,
+    default: 0
+  },
+  level: {
+    type: Number,
+    default: 1
+  },
+  activityHistory: [{
+    eventType: {
+      type: String,
+      enum: ['quiz_completion', 'project_joined', 'tree_planted', 'issue_reported', 'educational_content', 'community_event'],
+      required: true
+    },
+    description: {
+      type: String,
+      required: true
+    },
+    xpEarned: {
+      type: Number,
+      required: true
+    },
+    environmentalImpact: {
+      treesPlanted: Number,
+      co2Offset: Number,
+      waterSaved: Number
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    relatedItemId: String
+  }],
+  environmentalImpact: {
+    treesPlanted: {
+      type: Number,
+      default: 0
+    },
+    co2Offset: {
+      type: Number,
+      default: 0
+    },
+    waterSaved: {
+      type: Number,
+      default: 0
+    }
+  },
+  achievements: [{
+    type: String
+  }],
+  completedItems: [{
+    type: String
+  }],
+  
   // Common optional fields
   phone: String,
   profileImage: String,
@@ -169,6 +251,69 @@ userSchema.methods.toJSON = function() {
   const userObject = this.toObject();
   delete userObject.password;
   return userObject;
+};
+
+// Add XP and record activity
+userSchema.methods.addXP = async function(
+  amount: number, 
+  activityData: Partial<IActivityEvent>
+): Promise<IUser> {
+  // Add XP points
+  this.xpPoints += amount;
+  
+  // Update level based on XP using a more exponential curve
+  // Base level is 1, then each level requires progressively more XP
+  // Formula: level = 1 + sqrt(xp / 10)
+  const oldLevel = this.level;
+  const newLevel = Math.floor(1 + Math.sqrt(this.xpPoints / 10));
+  const leveledUp = newLevel > oldLevel;
+  this.level = newLevel;
+  
+  // Create activity record
+  const activity = {
+    eventType: activityData.eventType || 'educational_content',
+    description: activityData.description || 'Earned XP',
+    xpEarned: amount,
+    timestamp: activityData.timestamp || new Date(),
+    environmentalImpact: activityData.environmentalImpact,
+    relatedItemId: activityData.relatedItemId,
+    ...activityData // Include any additional fields passed in the activity data
+  };
+  
+  // Add to activity history (limit to most recent 50 activities)
+  this.activityHistory.unshift(activity); // Add to the beginning
+  if (this.activityHistory.length > 50) {
+    this.activityHistory = this.activityHistory.slice(0, 50);
+  }
+  
+  // Update environmental impact if provided
+  if (activity.environmentalImpact) {
+    if (activity.environmentalImpact.treesPlanted) {
+      this.environmentalImpact.treesPlanted += activity.environmentalImpact.treesPlanted;
+    }
+    if (activity.environmentalImpact.co2Offset) {
+      this.environmentalImpact.co2Offset += activity.environmentalImpact.co2Offset;
+    }
+    if (activity.environmentalImpact.waterSaved) {
+      this.environmentalImpact.waterSaved += activity.environmentalImpact.waterSaved;
+    }
+  }
+  
+  await this.save();
+  
+  return this as unknown as IUser;
+};
+
+// Mark an item as complete
+userSchema.methods.completeItem = async function(itemId: string): Promise<boolean> {
+  if (this.completedItems.includes(itemId)) {
+    return false; // Already completed
+  }
+  
+  this.completedItems.push(itemId);
+  await this.save();
+  
+  return true;
 };
 
 const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', userSchema);

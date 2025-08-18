@@ -1,64 +1,100 @@
 "use client"
 
-import type React from "react"
-import Link from "next/link"
-import { AlertTriangle } from "lucide-react"
-import { ChevronDown } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/components/auth-provider"
-
 import { useState, useEffect } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import {
+  Award,
+  Bell,
+  BookOpen,
+  Brain,
+  Calendar,
+  Camera,
+  CheckCircle,
+  ChevronDown,
+  Droplets,
+  Languages,
+  Leaf,
+  MapPin,
+  Play,
+  Plus,
+  Star,
+  TreePine,
+  TrendingUp,
+  User,
+  Users,
+  AlertTriangle,
+  Home,
+  FileText,
+  Trophy,
+  GraduationCap,
+  Route,
+  Video,
+  HelpCircle,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import {
-  Bell,
-  User,
-  TreePine,
-  Leaf,
-  Droplets,
-  Award,
-  Camera,
-  Play,
-  BookOpen,
-  Users,
-  Calendar,
-  Star,
-  TrendingUp,
-  MapPin,
-  Heart,
-  Share2,
-  Plus,
-  Languages,
-  CheckCircle,
-  Brain,
-} from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import QuizModal from "@/components/quiz-modal"
 import { UserMenu } from "@/components/user-menu"
 import { XPAnimation, useQuizToasts } from "@/components/quiz-animations"
-import DashboardSidebar from "@/components/ui/dashboard-sidebar"
 import { MobileNav } from "@/components/ui/mobile-nav"
+import { useAuth } from "@/components/auth-provider"
+import { useUserProgress } from "@/hooks/use-user-progress"
+import { formatDistanceToNow } from "date-fns"
+import EnvironmentalJourney from "@/components/environmental-journey"
+
+const languageOptions = [
+  { code: "en", name: "English", nativeName: "English" },
+  { code: "hi", name: "Hindi", nativeName: "हिंदी" },
+  { code: "bn", name: "Bengali", nativeName: "বাংলা" },
+  { code: "ta", name: "Tamil", nativeName: "தமிழ்" },
+  { code: "te", name: "Telugu", nativeName: "తెలుగు" },
+  { code: "mr", name: "Marathi", nativeName: "मराठी" },
+]
 
 export default function UserDashboard() {
   const [issueTitle, setIssueTitle] = useState("")
   const [issueLocation, setIssueLocation] = useState("")
+  const [issueDescription, setIssueDescription] = useState("")
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [language, setLanguage] = useState<"en" | "hi" | "bn" | "ta" | "te" | "mr">("en")
+  const [activeSection, setActiveSection] = useState("dashboard")
+  const [educationSubsection, setEducationSubsection] = useState("videos")
   const [quizModalOpen, setQuizModalOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState("overview")
   const [quizMaterial, setQuizMaterial] = useState<{
     title: string;
     type: string;
     id: string;
     description?: string;
   } | null>(null)
-  const [issueDescription, setIssueDescription] = useState("")
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const [language, setLanguage] = useState<"en" | "hi" | "bn" | "ta" | "te" | "mr">("en")
-  const [completedItems, setCompletedItems] = useState<Set<string>>(new Set())
   const { user, loading } = useAuth();
   const router = useRouter();
-
+  const {
+    addUserXP,
+    markItemAsComplete,
+    isItemCompleted,
+    calculateXpForNextLevel,
+    userXp,
+    userLevel,
+    userImpact,
+    activityHistory,
+    completedItems: completedItemsArray,
+    isLoading: progressLoading
+  } = useUserProgress();
+  
+  // Convert completed items array to a Set for faster lookups
+  const [completedItems, setCompletedItems] = useState<Set<string>>(new Set());
+  // XP Animation states
+  const [showXP, setShowXP] = useState(false);
+  const [earnedXP, setEarnedXP] = useState(0);
+  const [showIssueXP, setShowIssueXP] = useState(false);
+  
+  // Get the current language object
+  const currentLanguage = languageOptions.find(l => l.code === language) || languageOptions[0]
+  
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!loading && !user) {
@@ -67,6 +103,19 @@ export default function UserDashboard() {
       router.push(`/${user.role}`);
     }
   }, [user, loading, router]);
+  
+  // Update completedItems Set from array when available
+  useEffect(() => {
+    if (completedItemsArray && completedItemsArray.length > 0) {
+      setCompletedItems(new Set(completedItemsArray));
+    }
+  }, [completedItemsArray]);
+  
+  // Handle XP animation completion
+  const handleXPAnimationComplete = () => {
+    setShowXP(false);
+    setShowIssueXP(false);
+  };
 
   // If still loading or not authenticated, show loading
   if (loading || !user) {
@@ -80,18 +129,102 @@ export default function UserDashboard() {
     );
   }
 
-  // If wrong role, redirect
-  if (user.role !== 'user') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-green-50 to-lime-50">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-lg text-green-700">Redirecting to appropriate dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  // Add functions for quiz interactions
+  const handleEducationClick = (item: { id: string; type: string; title: string; description?: string }) => {
+    if (item.type === 'video' || item.type === 'pdf') {
+      setQuizMaterial({
+        id: item.id,
+        type: item.type,
+        title: item.title,
+        description: item.description
+      });
+      setQuizModalOpen(true);
+    }
+  };
 
+  const toggleCompletion = async (itemId: string, item: any) => {
+    // If already completed, do nothing (we don't allow uncompleting items)
+    if (completedItems.has(itemId)) {
+      return;
+    }
+    
+    // If it's a learning material, show the quiz instead of directly marking complete
+    if (item.type === 'video' || item.type === 'pdf') {
+      handleEducationClick(item);
+      return;
+    }
+    
+    // For other types of items, mark as complete directly
+    const result = await markItemAsComplete(
+      itemId,
+      item.type || 'content',
+      item.title || 'Content item',
+      15 // Default XP amount
+    );
+    
+    if (result.success) {
+      // Update local completion state
+      const newCompletedItems = new Set(completedItems);
+      newCompletedItems.add(itemId);
+      setCompletedItems(newCompletedItems);
+      
+      // Show XP animation
+      setEarnedXP(15);
+      setShowXP(true);
+    }
+  };
+  
+  const handleQuizComplete = async (score: number) => {
+    if (!quizMaterial) return;
+    
+    // Calculate XP based on score with more generous rewards
+    // Base XP: 10 points for attempting
+    // Score bonus: up to 25 extra points based on performance
+    // Perfect score bonus: additional 10 points for 100%
+    const baseXP = 10;
+    const scoreBonus = Math.floor((score / 100) * 25);
+    const perfectBonus = score === 100 ? 10 : 0;
+    const totalXP = baseXP + scoreBonus + perfectBonus;
+    
+    console.log(`Quiz completed with score: ${score}%, Total XP: ${totalXP}`);
+    console.log('Current user XP before completion:', userXp);
+    
+    // Mark the quiz as completed and award XP
+    const result = await markItemAsComplete(
+      quizMaterial.id,
+      'quiz',
+      quizMaterial.title,
+      totalXP
+    );
+    
+    console.log('Mark item complete result:', result);
+    
+    if (result.success) {
+      // Update local completion state
+      const newCompletedItems = new Set(completedItems);
+      newCompletedItems.add(quizMaterial.id);
+      setCompletedItems(newCompletedItems);
+      
+      // Show XP animation
+      setEarnedXP(totalXP);
+      setShowXP(true);
+      
+      console.log(`XP animation triggered with ${totalXP} XP`);
+      console.log('Current user XP after completion:', userXp);
+      
+      // Force a small delay and log the XP again to see if it updates
+      setTimeout(() => {
+        console.log('User XP after 1 second delay:', userXp);
+      }, 1000);
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    setUploadedFiles((prev) => [...prev, ...files])
+    console.log("[v0] Files uploaded:", files.length)
+  }
+  
   const translations = {
     en: {
       welcome: `Welcome back, ${user?.name || 'User'}!`,
@@ -119,19 +252,25 @@ export default function UserDashboard() {
       leaderboard: "Community Leaderboard",
       viewFullLeaderboard: "View Full Leaderboard",
       educationHub: "Environmental Education Hub",
-      educationalVideos: "Educational Videos",
-      researchPapers: "Research Papers & PDFs",
-      completed: "Completed",
-      markComplete: "Mark as Complete",
       environmentalJourney: "My Environmental Journey",
       today: "Today",
       daysAgo: "days ago",
       weekAgo: "week ago",
       weeksAgo: "weeks ago",
       monthAgo: "month ago",
+      dashboard: "Dashboard",
+      myActiveProjects: "My Active Projects",
+      communityLeaderboard: "Community Leaderboard",
+      environmentEducationHub: "Environment Education Hub",
+      myEnvironmentalJourney: "My Environmental Journey",
+      educationalVideos: "Educational Videos",
+      environmentalQuiz: "Environmental Quiz",
     },
+
+    // ... existing code for other languages ...
+
     hi: {
-      welcome: `वापसी पर स्वागत है, ${user?.name || 'उपयोगकर्ता'}!`,
+      welcome: "वापसी पर स्वागत है, अर्जुन!",
       progress: "इस महीने आपने अद्भुत प्रगति की है। हमारे ग्रह के लिए महान कार्य जारी रखें!",
       level: "स्तर 7 पर्यावरण योद्धा",
       impactPoints: "प्रभाव अंक",
@@ -155,33 +294,37 @@ export default function UserDashboard() {
       gpsLocation: "GPS स्थान",
       leaderboard: "समुदायिक लीडरबोर्ड",
       viewFullLeaderboard: "पूरा लीडरबोर्ड देखें",
-      educationHub: "पर्यावरण शिक्षा केंद्र",
-      educationalVideos: "शैक्षणिक वीडियो",
-      researchPapers: "अनुसंधान पत्र और पीडीएफ",
-      completed: "पूर्ण",
-      markComplete: "पूर्ण के रूप में चिह्नित करें",
+      educationHub: "पर्यावरणीय शिक्षा केंद्र",
       environmentalJourney: "मेरी पर्यावरणीय यात्रा",
       today: "आज",
       daysAgo: "दिन पहले",
       weekAgo: "सप्ताह पहले",
       weeksAgo: "सप्ताह पहले",
       monthAgo: "महीना पहले",
+      dashboard: "डैशबोर्ड",
+      myActiveProjects: "मेरी सक्रिय परियोजनाएं",
+      communityLeaderboard: "समुदायिक लीडरबोर्ड",
+      environmentEducationHub: "पर्यावरण शिक्षा केंद्र",
+      myEnvironmentalJourney: "मेरी पर्यावरणीय यात्रा",
+      educationalVideos: "शैक्षिक वीडियो",
+      environmentalQuiz: "पर्यावरणीय प्रश्नोत्तरी",
     },
+
     bn: {
-      welcome: `স্বাগতম ফিরে, ${user?.name || 'ব্যবহারকারী'}!`,
+      welcome: "ফিরে আসার জন্য স্বাগতম, অর্জুন!",
       progress: "এই মাসে আপনি অসাধারণ অগ্রগতি করেছেন। আমাদের গ্রহের জন্য দুর্দান্ত কাজ চালিয়ে যান!",
-      level: "লেভেল ৭ পরিবেশ যোদ্ধা",
+      level: "স্তর ৭ পরিবেশ যোদ্ধা",
       impactPoints: "প্রভাব পয়েন্ট",
       myImpact: "আমার পরিবেশগত প্রভাব",
       xpPoints: "XP পয়েন্ট",
       treesPlanted: "গাছ লাগানো",
       co2Offset: "CO₂ হ্রাস",
       waterSaved: "পানি সাশ্রয়",
-      progressToNext: "লেভেল ৮ এর অগ্রগতি",
-      xpNeeded: "পরবর্তী লেভেলের জন্য XP প্রয়োজন",
+      progressToNext: "স্তর ৮ এর অগ্রগতি",
+      xpNeeded: "পরবর্তী স্তরের জন্য XP প্রয়োজন",
       activeProjects: "আমার সক্রিয় প্রকল্প",
       joinMore: "আরো যোগ দিন",
-      participants: "যোগদান করেছে",
+      participants: "যোগ দিয়েছে",
       timeLeft: "বাকি",
       reportIssue: "পরিবেশগত সমস্যা রিপোর্ট করুন",
       spottedIssue: "কোনো পরিবেশগত সমস্যা দেখেছেন?",
@@ -192,20 +335,24 @@ export default function UserDashboard() {
       gpsLocation: "GPS অবস্থান",
       leaderboard: "কমিউনিটি লিডারবোর্ড",
       viewFullLeaderboard: "সম্পূর্ণ লিডারবোর্ড দেখুন",
-      educationHub: "পরিবেশ শিক্ষা কেন্দ্র",
-      educationalVideos: "শিক্ষামূলক ভিডিও",
-      researchPapers: "গবেষণা পত্র এবং পিডিএফ",
-      completed: "সম্পন্ন",
-      markComplete: "সম্পন্ন হিসেবে চিহ্নিত করুন",
+      educationHub: "পরিবেশগত শিক্ষা কেন্দ্র",
       environmentalJourney: "আমার পরিবেশগত যাত্রা",
       today: "আজ",
       daysAgo: "দিন আগে",
       weekAgo: "সপ্তাহ আগে",
       weeksAgo: "সপ্তাহ আগে",
       monthAgo: "মাস আগে",
+      dashboard: "ড্যাশবোর্ড",
+      myActiveProjects: "আমার সক্রিয় প্রকল্প",
+      communityLeaderboard: "কমিউনিটি লিডারবোর্ড",
+      environmentEducationHub: "পরিবেশ শিক্ষা কেন্দ্র",
+      myEnvironmentalJourney: "আমার পরিবেশগত যাত্রা",
+      educationalVideos: "শিক্ষামূলক ভিডিও",
+      environmentalQuiz: "পরিবেশগত কুইজ",
     },
+
     ta: {
-      welcome: `மீண்டும் வரவேற்கிறோம், ${user?.name || 'பயனர்'}!`,
+      welcome: "மீண்டும் வரவேற்கிறோம், அர்ஜுன்!",
       progress: "இந்த மாதம் நீங்கள் அற்புதமான முன்னேற்றம் அடைந்துள்ளீர்கள். நமது கிரகத்திற்கான சிறந்த பணியைத் தொடருங்கள்!",
       level: "நிலை 7 சுற்றுச்சூழல் வீரர்",
       impactPoints: "தாக்க புள்ளிகள்",
@@ -223,26 +370,30 @@ export default function UserDashboard() {
       reportIssue: "சுற்றுச்சூழல் பிரச்சினையை புகாரளிக்கவும்",
       spottedIssue: "ஏதேனும் சுற்றுச்சூழல் பிரச்சினையைக் கண்டீர்களா?",
       reportDescription:
-        "மாசுபாடு, சட்டவிரோத குப்பை கொட்டுதல், காடழிப்பு, அல்லது உங்கள் பகுதியில் உள்ள பிற சுற்றுச்சூழல் கவலைகளை புகாரளித்து நமது சுற்றுச்சூழலைப் பாதுகாக்க உதவுங்கள்.",
+        "மாசுபாடு, சட்டவிரோத குப்பை கொட்டுதல், காடழிப்பு, அல்லது உங்கள் பகுதியில் உள்ள பிற சுற்றுச்சூழல் கவலைகளை புகாரளிப்பதன் மூலம் நமது சுற்றுச்சூழலைப் பாதுகாக்க உதவுங்கள்.",
       reportButton: "பிரச்சினையை புகாரளிக்கவும் (+10 XP)",
       photoEvidence: "புகைப்பட ஆதாரம்",
       gpsLocation: "GPS இடம்",
       leaderboard: "சமூக லீடர்போர்டு",
       viewFullLeaderboard: "முழு லீடர்போர்டைப் பார்க்கவும்",
       educationHub: "சுற்றுச்சூழல் கல்வி மையம்",
-      educationalVideos: "கல்வி வீடியோக்கள்",
-      researchPapers: "ஆராய்ச்சி கட்டுரைகள் & PDF",
-      completed: "முடிக்கப்பட்டது",
-      markComplete: "நிறைவு என குறிக்கவும்",
       environmentalJourney: "எனது சுற்றுச்சூழல் பயணம்",
       today: "இன்று",
       daysAgo: "நாட்களுக்கு முன்பு",
-      weekAgo: "வாரம் முன்பு",
+      weekAgo: "வாரத்திற்கு முன்பு",
       weeksAgo: "வாரங்களுக்கு முன்பு",
-      monthAgo: "மாதம் முன்பு",
+      monthAgo: "மாதத்திற்கு முன்பு",
+      dashboard: "டாஷ்போர்டு",
+      myActiveProjects: "எனது செயலில் உள்ள திட்டங்கள்",
+      communityLeaderboard: "சமூக லீடர்போர்டு",
+      environmentEducationHub: "சுற்றுச்சூழல் கல்வி மையம்",
+      myEnvironmentalJourney: "எனது சுற்றுச்சூழல் பயணம்",
+      educationalVideos: "கல்வி வீடியோக்கள்",
+      environmentalQuiz: "சுற்றுச்சூழல் வினாடி வினா",
     },
+
     te: {
-      welcome: `తిరిగి స్వాగతం, ${user?.name || 'వినియోగదారు'}!`,
+      welcome: "తిరిగి స్వాగతం, అర్జున్!",
       progress: "ఈ నెలలో మీరు అద్భుతమైన పురోగతి సాధించారు. మన గ్రహం కోసం గొప్ప పనిని కొనసాగించండి!",
       level: "స్థాయి 7 పర్యావరణ యోధుడు",
       impactPoints: "ప్రభావ పాయింట్లు",
@@ -267,26 +418,30 @@ export default function UserDashboard() {
       leaderboard: "కమ్యూనిటీ లీడర్‌బోర్డ్",
       viewFullLeaderboard: "పూర్తి లీడర్‌బోర్డ్ చూడండి",
       educationHub: "పర్యావరణ విద్యా కేంద్రం",
-      educationalVideos: "విద్యా వీడియోలు",
-      researchPapers: "పరిశోధన పత్రాలు & PDF లు",
-      completed: "పూర్తయింది",
-      markComplete: "పూర్తిగా గుర్తించండి",
       environmentalJourney: "నా పర్యావరణ ప్రయాణం",
       today: "ఈరోజు",
       daysAgo: "రోజుల క్రితం",
       weekAgo: "వారం క్రితం",
       weeksAgo: "వారాల క్రితం",
       monthAgo: "నెల క్రితం",
+      dashboard: "డాష్‌బోర్డ్",
+      myActiveProjects: "నా క్రియాశీల ప్రాజెక్టులు",
+      communityLeaderboard: "కమ్యూనిటీ లీడర్‌బోర్డ్",
+      environmentEducationHub: "పర్యావరణ విద్యా కేంద్రం",
+      myEnvironmentalJourney: "నా పర్యావరణ ప్రయాణం",
+      educationalVideos: "విద్యా వీడియోలు",
+      environmentalQuiz: "పర్యావరణ క్విజ్",
     },
+
     mr: {
-      welcome: `परत स्वागत आहे, ${user?.name || 'वापरकर्ता'}!`,
-      progress: "या महिन्यात तुम्ही अप्रतिम प्रगती केली आहे. आपल्या ग्रहासाठी उत्कृष्ट कार्य चालू ठेवा!",
+      welcome: "परत आल्याबद्दल स्वागत, अर्जुन!",
+      progress: "या महिन्यात तुम्ही आश्चर्यकारक प्रगती केली आहे. आमच्या ग्रहासाठी उत्कृष्ट कार्य चालू ठेवा!",
       level: "स्तर 7 पर्यावरण योद्धा",
       impactPoints: "प्रभाव गुण",
       myImpact: "माझा पर्यावरणीय प्रभाव",
       xpPoints: "XP गुण",
       treesPlanted: "झाडे लावली",
-      co2Offset: "CO₂ कपात",
+      co2Offset: "CO₂ कमी",
       waterSaved: "पाणी वाचवले",
       progressToNext: "स्तर 8 ची प्रगती",
       xpNeeded: "पुढील स्तरासाठी XP आवश्यक",
@@ -303,181 +458,24 @@ export default function UserDashboard() {
       gpsLocation: "GPS स्थान",
       leaderboard: "समुदाय लीडरबोर्ड",
       viewFullLeaderboard: "संपूर्ण लीडरबोर्ड पहा",
-      educationHub: "पर्यावरण शिक्षण केंद्र",
-      educationalVideos: "शैक्षणिक व्हिडिओ",
-      researchPapers: "संशोधन पत्र आणि PDF",
-      completed: "पूर्ण केले",
-      markComplete: "पूर्ण म्हणून चिन्हांकित करा",
+      educationHub: "पर्यावरणीय शिक्षण केंद्र",
       environmentalJourney: "माझा पर्यावरणीय प्रवास",
       today: "आज",
       daysAgo: "दिवसांपूर्वी",
-      weekAgo: "आठवडा पूर्वी",
-      weeksAgo: "आठवडे पूर्वी",
-      monthAgo: "महिना पूर्वी",
+      weekAgo: "आठवड्यापूर्वी",
+      weeksAgo: "आठवड्यांपूर्वी",
+      monthAgo: "महिन्यापूर्वी",
+      dashboard: "डॅशबोर्ड",
+      myActiveProjects: "माझे सक्रिय प्रकल्प",
+      communityLeaderboard: "समुदाय लीडरबोर्ड",
+      environmentEducationHub: "पर्यावरण शिक्षण केंद्र",
+      myEnvironmentalJourney: "माझा पर्यावरणीय प्रवास",
+      educationalVideos: "शैक्षणिक व्हिडिओ",
+      environmentalQuiz: "पर्यावरणीय प्रश्नमंजुषा",
     },
   }
 
   const t = translations[language]
-
-  const languageOptions = [
-    { code: "en", name: "English", nativeName: "EN" },
-    { code: "hi", name: "Hindi", nativeName: "हिं" },
-    { code: "bn", name: "Bangla", nativeName: "বাং" },
-    { code: "ta", name: "Tamil", nativeName: "தமி" },
-    { code: "te", name: "Telugu", nativeName: "తెలు" },
-    { code: "mr", name: "Marathi", nativeName: "मरा" },
-  ]
-
-  const currentLanguage = languageOptions.find((lang) => lang.code === language)
-
-  const handleSubmitReport = () => {
-    console.log("[v0] Submitting report:", { issueTitle, issueLocation, issueDescription, uploadedFiles })
-    setIssueTitle("")
-    setIssueLocation("")
-    setIssueDescription("")
-    setUploadedFiles([])
-  }
-
-  const handleJoinProject = (projectName: string) => {
-    console.log("[v0] Joining project:", projectName)
-  }
-
-  const handleEducationClick = (item: any) => {
-    console.log("[v0] Education item clicked:", item.title)
-    if (item.type === 'pdf') {
-      // Open PDF in new tab
-      window.open(`/Education/${item.filename}`, '_blank')
-    }
-  }
-
-  const toggleCompletion = (itemId: string, item: any) => {
-    // First check if the item was already completed
-    const wasCompleted = completedItems.has(itemId);
-    
-    // Update the completedItems set
-    setCompletedItems(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(itemId)) {
-        newSet.delete(itemId)
-      } else {
-        newSet.add(itemId)
-        
-        // If the item was not already completed, show the quiz modal
-        if (!wasCompleted && item) {
-          // Trigger quiz for newly completed item
-          setQuizMaterial({
-            id: itemId,
-            title: item.title,
-            type: item.type,
-            description: item.description
-          });
-          setQuizModalOpen(true);
-        }
-      }
-      return newSet
-    })
-  }
-  
-  const [showXpAnimation, setShowXpAnimation] = useState(false);
-  const [xpEarned, setXpEarned] = useState(0);
-  const { showQuizCompletedToast } = useQuizToasts();
-  
-  const handleQuizComplete = (score: number) => {
-    // Add additional XP based on quiz score
-    const earnedXP = Math.round(score / 10); // 1-10 XP based on score percentage
-    setXpEarned(earnedXP);
-    
-    // In a real app, you would save this to the database
-    console.log(`Quiz completed with score: ${score}%`);
-    console.log(`XP earned from quiz: ${earnedXP}`);
-    
-    // Show toast with the score and XP earned
-    showQuizCompletedToast(score, earnedXP);
-    
-    // Show XP animation
-    setShowXpAnimation(true);
-    
-    // Close the quiz modal
-    setQuizModalOpen(false);
-  }
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
-    setUploadedFiles((prev) => [...prev, ...files])
-    console.log("[v0] Files uploaded:", files.length)
-  }
-
-  // Add sidebar translations
-  const sidebarTranslations = {
-    en: {
-      dashboardMenu: "Dashboard Menu",
-      overview: "Overview",
-      education: "Education Hub",
-      achievements: "Achievements",
-      impact: "My Impact",
-      reports: "My Reports",
-      events: "Events",
-      community: "Community",
-      settings: "Settings"
-    },
-    hi: {
-      dashboardMenu: "डैशबोर्ड मेनू",
-      overview: "अवलोकन",
-      education: "शिक्षा केंद्र",
-      achievements: "उपलब्धियां",
-      impact: "मेरा प्रभाव",
-      reports: "मेरी रिपोर्ट",
-      events: "कार्यक्रम",
-      community: "समुदाय",
-      settings: "सेटिंग्स"
-    },
-    bn: {
-      dashboardMenu: "ড্যাশবোর্ড মেনু",
-      overview: "ওভারভিউ",
-      education: "শিক্ষা হাব",
-      achievements: "অর্জন",
-      impact: "আমার প্রভাব",
-      reports: "আমার রিপোর্ট",
-      events: "ইভেন্ট",
-      community: "কমিউনিটি",
-      settings: "সেটিংস"
-    },
-    ta: {
-      dashboardMenu: "டாஷ்போர்டு மெனு",
-      overview: "கண்ணோட்டம்",
-      education: "கல்வி மையம்",
-      achievements: "சாதனைகள்",
-      impact: "எனது தாக்கம்",
-      reports: "எனது அறிக்கைகள்",
-      events: "நிகழ்வுகள்",
-      community: "சமூகம்",
-      settings: "அமைப்புகள்"
-    },
-    te: {
-      dashboardMenu: "డాష్‌బోర్డ్ మెను",
-      overview: "అవలోకనం",
-      education: "విద్యా కేంద్రం",
-      achievements: "సాధనలు",
-      impact: "నా ప్రభావం",
-      reports: "నా నివేదికలు",
-      events: "కార్యక్రమాలు",
-      community: "సముదాయం",
-      settings: "సెట్టింగులు"
-    },
-    mr: {
-      dashboardMenu: "डॅशबोर्ड मेनू",
-      overview: "अवलोकन",
-      education: "शिक्षण केंद्र",
-      achievements: "यश",
-      impact: "माझा प्रभाव",
-      reports: "माझे अहवाल",
-      events: "कार्यक्रम",
-      community: "समुदाय",
-      settings: "सेटिंग्ज"
-    }
-  };
-  
-  const currentSidebarTranslations = sidebarTranslations[language] || sidebarTranslations.en;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50">
@@ -524,1004 +522,619 @@ export default function UserDashboard() {
               <Bell className="w-4 h-4" />
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full"></span>
             </Button>
+            {/* Use the UserMenu component here */}
             <UserMenu />
+            
           </div>
         </div>
       </header>
 
-      {/* Mobile Navigation - Visible on small screens */}
-      <div className="block md:hidden">
-        <MobileNav 
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          translations={currentSidebarTranslations}
-        />
-      </div>
-        
-      <div className="flex min-h-[calc(100vh-73px)]">
-        {/* Sidebar */}
-        <div className="w-64 p-4 hidden md:block">
-          <DashboardSidebar 
-            activeTab={activeTab} 
-            onTabChange={setActiveTab} 
-            translations={currentSidebarTranslations} 
-          />
-        </div>
+      <div className="flex">
+        <aside className="w-64 min-h-screen glass border-r">
+          <nav className="p-4 space-y-2">
+            <Button
+              variant={activeSection === "dashboard" ? "default" : "ghost"}
+              className={`w-full justify-start ${
+                activeSection === "dashboard" ? "bg-emerald-500 text-white hover:bg-emerald-600" : "hover:bg-emerald-50"
+              }`}
+              onClick={() => setActiveSection("dashboard")}
+            >
+              <Home className="w-4 h-4 mr-3" />
+              {t.dashboard}
+            </Button>
+            <Button
+              variant={activeSection === "my-active-projects" ? "default" : "ghost"}
+              className={`w-full justify-start ${
+                activeSection === "my-active-projects"
+                  ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                  : "hover:bg-emerald-50"
+              }`}
+              onClick={() => setActiveSection("my-active-projects")}
+            >
+              <TreePine className="w-4 h-4 mr-3" />
+              {t.myActiveProjects}
+            </Button>
+            <Button
+              variant={activeSection === "report-issue" ? "default" : "ghost"}
+              className={`w-full justify-start ${
+                activeSection === "report-issue"
+                  ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                  : "hover:bg-emerald-50"
+              }`}
+              onClick={() => setActiveSection("report-issue")}
+            >
+              <FileText className="w-4 h-4 mr-3" />
+              {t.reportIssue}
+            </Button>
+            <Button
+              variant={activeSection === "community-leaderboard" ? "default" : "ghost"}
+              className={`w-full justify-start ${
+                activeSection === "community-leaderboard"
+                  ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                  : "hover:bg-emerald-50"
+              }`}
+              onClick={() => setActiveSection("community-leaderboard")}
+            >
+              <Trophy className="w-4 h-4 mr-3" />
+              {t.communityLeaderboard}
+            </Button>
+            <Button
+              variant={activeSection === "education-hub" ? "default" : "ghost"}
+              className={`w-full justify-start ${
+                activeSection === "education-hub"
+                  ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                  : "hover:bg-emerald-50"
+              }`}
+              onClick={() => setActiveSection("education-hub")}
+            >
+              <GraduationCap className="w-4 h-4 mr-3" />
+              {t.environmentEducationHub}
+            </Button>
+            <Button
+              variant={activeSection === "environmental-journey" ? "default" : "ghost"}
+              className={`w-full justify-start ${
+                activeSection === "environmental-journey"
+                  ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                  : "hover:bg-emerald-50"
+              }`}
+              onClick={() => setActiveSection("environmental-journey")}
+            >
+              <Route className="w-4 h-4 mr-3" />
+              {t.myEnvironmentalJourney}
+            </Button>
+          </nav>
+        </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 p-6 space-y-6">
-        {/* Hero Header with Welcome Message - Always visible */}
-        <div className="glass-strong rounded-3xl p-8 text-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-green-500/10" />
-          <div className="relative z-10">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center mx-auto mb-4">
-              <TreePine className="w-10 h-10 text-white animate-pulse" />
-            </div>
-            <h1 className="font-serif font-bold text-3xl text-foreground mb-2">{t.welcome}</h1>
-            <p className="text-lg text-muted-foreground mb-6">{t.progress}</p>
-            <div className="flex items-center justify-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                <span className="text-emerald-600 font-medium">{t.level}</span>
+        <main className="flex-1 p-6">
+          {activeSection === "dashboard" && (
+            <div className="space-y-6">
+              {/* Hero Header with Welcome Message */}
+              <div className="glass-strong rounded-3xl p-8 text-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-green-500/10" />
+                <div className="relative z-10">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center mx-auto mb-4">
+                    <TreePine className="w-10 h-10 text-white animate-pulse" />
+                  </div>
+                  <h1 className="font-serif font-bold text-3xl text-foreground mb-2">{t.welcome}</h1>
+                  <p className="text-lg text-emerald-600 mb-6">{t.progress}</p>
+                  <div className="flex items-center justify-center gap-6 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                      <span className="text-emerald-600 font-medium">Level {userLevel} Eco-Warrior</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Star className="w-4 h-4 text-yellow-500" />
+                      <span className="text-emerald-600">{userXp} {t.impactPoints}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Star className="w-4 h-4 text-yellow-500" />
-                <span className="text-muted-foreground">2,450 {t.impactPoints}</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Row 1: My Impact & Ongoing Projects */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* My Impact Graphic */}
-          <Card className="glass">
-            <CardHeader>
-              <CardTitle className="text-lg font-serif flex items-center gap-2">
-                <Award className="w-5 h-5 text-emerald-600" />
-                {t.myImpact}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {/* Circular Progress Chart */}
-                <div className="flex items-center justify-center">
-                  <div className="relative w-32 h-32">
-                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-emerald-500 to-green-500 p-1">
-                      <div className="w-full h-full rounded-full bg-background flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-emerald-600">2,450</div>
-                          <div className="text-xs text-muted-foreground">{t.xpPoints}</div>
+              {/* My Impact Graphic */}
+              <Card className="glass">
+                <CardHeader>
+                  <CardTitle className="text-lg font-serif flex items-center gap-2">
+                    <Award className="w-5 h-5 text-emerald-600" />
+                    {t.myImpact}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Circular Progress Chart */}
+                    <div className="flex items-center justify-center">
+                      <div className="relative w-32 h-32">
+                        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-emerald-500 to-green-500 p-1">
+                          <div className="w-full h-full rounded-full bg-background flex items-center justify-center">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-emerald-600">{userXp.toLocaleString()}</div>
+                              <div className="text-xs text-emerald-600">{t.xpPoints}</div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* Impact Stats */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center p-3 rounded-lg bg-emerald-50">
-                    <TreePine className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
-                    <div className="text-lg font-bold text-emerald-600">47</div>
-                    <div className="text-xs text-muted-foreground">{t.treesPlanted}</div>
-                  </div>
-                  <div className="text-center p-3 rounded-lg bg-green-50">
-                    <Leaf className="w-6 h-6 text-green-600 mx-auto mb-2" />
-                    <div className="text-lg font-bold text-green-600">125kg</div>
-                    <div className="text-xs text-muted-foreground">{t.co2Offset}</div>
-                  </div>
-                  <div className="text-center p-3 rounded-lg bg-teal-50">
-                    <Droplets className="w-6 h-6 text-teal-600 mx-auto mb-2" />
-                    <div className="text-lg font-bold text-teal-600">890L</div>
-                    <div className="text-xs text-muted-foreground">{t.waterSaved}</div>
-                  </div>
-                </div>
-
-                {/* Progress to Next Level */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{t.progressToNext}</span>
-                    <span className="font-medium">2,450 / 3,000 XP</span>
-                  </div>
-                  <Progress value={82} className="h-2" />
-                  <p className="text-xs text-muted-foreground">550 XP {t.xpNeeded}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Ongoing Projects */}
-          <Card className="glass">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg font-serif">{t.activeProjects}</CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-transparent"
-                onClick={() => console.log("[v0] Join More clicked")}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                {t.joinMore}
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {[
-                  {
-                    title:
-                      language === "en"
-                        ? "Community Garden Project"
-                        : language === "hi"
-                          ? "सामुदायिक बगीचा परियोजना"
-                          : language === "bn"
-                            ? "সামুদায়িক বাগি প্রকল্প"
-                            : language === "ta"
-                              ? "பொது வேலை பொருள் பாடு"
-                              : language === "te"
-                                ? "ప్రక్టీకా ప్రాజెక్టు"
-                                : "सामुदायिक बगीचा परियोजना",
-                    progress: 75,
-                    participants: 24,
-                    deadline:
-                      language === "en"
-                        ? "2 weeks left"
-                        : language === "hi"
-                          ? "2 सप्ताह बचे"
-                          : language === "bn"
-                            ? "২ সপ্তাহ বাকি"
-                            : language === "ta"
-                              ? "2 வாரங்கள் மீதம்"
-                              : language === "te"
-                                ? "2 సప్టామ్యాలు మిగిలింది"
-                                : "2 सप्ताह बचे",
-                    impact: "+15 XP",
-                  },
-                  {
-                    title:
-                      language === "en"
-                        ? "Beach Cleanup Initiative"
-                        : language === "hi"
-                          ? "समुद्री तट सफाई पहल"
-                          : language === "bn"
-                            ? "সমুদ্রী ট্যাট সাফাই প্রতিষ্ঠান"
-                            : language === "ta"
-                              ? "சுற்றுச்சூழல் பொருள் பாடு"
-                              : language === "te"
-                                ? "ప్రక్టీకా ప్రాజెక్టు"
-                                : "समुद्री तट सफाई पहल",
-                    progress: 45,
-                    participants: 18,
-                    deadline:
-                      language === "en"
-                        ? "1 month left"
-                        : language === "hi"
-                          ? "1 महीना बचा"
-                          : language === "bn"
-                            ? "১ মাস বাকি"
-                            : language === "ta"
-                              ? "1 மாதம் மீதம்"
-                              : language === "te"
-                                ? "1 మాసం మిగిలింది"
-                                : "1 महीना बचा",
-                    impact: "+25 XP",
-                  },
-                  {
-                    title:
-                      language === "en"
-                        ? "Solar Panel Installation"
-                        : language === "hi"
-                          ? "सोलर पैनल स्थापना"
-                          : language === "bn"
-                            ? "সোলার প্যানেল স্থাপনা"
-                            : language === "ta"
-                              ? "சோலர் பைனல் அநுபவம்"
-                              : language === "te"
-                                ? "సోలర్ పైనల్ స్థాన"
-                                : "सोलर पैनल स्थापना",
-                    progress: 90,
-                    participants: 12,
-                    deadline:
-                      language === "en"
-                        ? "3 days left"
-                        : language === "hi"
-                          ? "3 दिन बचे"
-                          : language === "bn"
-                            ? "৩ দিন বাকি"
-                            : language === "ta"
-                              ? "3 நாட்கள் மீதம்"
-                              : language === "te"
-                                ? "3 రోజులు మిగిలింది"
-                                : "3 दिन बचे",
-                    impact: "+40 XP",
-                  },
-                ].map((project, index) => (
-                  <div
-                    key={index}
-                    className="p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => handleJoinProject(project.title)}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-foreground">{project.title}</h4>
-                      <Badge className="bg-emerald-100 text-emerald-700">{project.impact}</Badge>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3 h-3" />
-                        {project.participants} {t.participants}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {project.deadline}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Progress value={project.progress} className="flex-1 h-2" />
-                      <span className="text-sm font-medium">{project.progress}%</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Row 2: Report Issue Portal & Leaderboard */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Report Issue Portal */}
-          <Card className="glass">
-            <CardHeader>
-              <CardTitle className="text-lg font-serif flex items-center gap-2">
-                <Camera className="w-5 h-5 text-orange-600" />
-                {t.reportIssue}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center space-y-4">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center mx-auto">
-                  <AlertTriangle className="w-10 h-10 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-foreground mb-2">{t.spottedIssue}</h3>
-                  <p className="text-sm text-muted-foreground mb-4">{t.reportDescription}</p>
-                </div>
-                <Link href="/report-issue">
-                  <Button className="w-full bg-emerald-500 hover:bg-emerald-600 text-white">{t.reportButton}</Button>
-                </Link>
-                <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Camera className="w-3 h-3" />
-                    <span>{t.photoEvidence}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    <span>{t.gpsLocation}</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Leaderboard */}
-          <Card className="glass">
-            <CardHeader>
-              <CardTitle className="text-lg font-serif flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-yellow-600" />
-                {t.leaderboard}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {[
-                  { name: "Priya Sharma", points: 3240, rank: 1, change: "up", avatar: "PS" },
-                  { name: "Rahul Kumar", points: 2890, rank: 2, change: "same", avatar: "RK" },
-                  { name: "Arjun Patel", points: 2450, rank: 3, change: "up", avatar: "AP" },
-                  { name: "Sneha Gupta", points: 2180, rank: 4, change: "down", avatar: "SG" },
-                  { name: "Vikram Singh", points: 1950, rank: 5, change: "up", avatar: "VS" },
-                ].map((user, index) => (
-                  <div
-                    key={index}
-                    className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
-                      user.name === "Arjun Patel" ? "bg-emerald-100 border border-emerald-200" : "bg-muted/30"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-muted-foreground">#{user.rank}</span>
-                        {user.change === "up" && <TrendingUp className="w-3 h-3 text-green-500" />}
-                        {user.change === "down" && <TrendingUp className="w-3 h-3 text-red-500 rotate-180" />}
+                    {/* Impact Stats */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center p-3 rounded-lg bg-emerald-50">
+                        <TreePine className="w-6 h-6 text-emerald-600 mx-auto mb-2" />
+                        <div className="text-lg font-bold text-emerald-600">{userImpact.treesPlanted}</div>
+                        <div className="text-xs text-emerald-600">{t.treesPlanted}</div>
                       </div>
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center">
-                        <span className="text-xs font-bold text-white">{user.avatar}</span>
+                      <div className="text-center p-3 rounded-lg bg-green-50">
+                        <Leaf className="w-6 h-6 text-green-600 mx-auto mb-2" />
+                        <div className="text-lg font-bold text-green-600">{userImpact.co2Offset}kg</div>
+                        <div className="text-xs text-emerald-600">{t.co2Offset}</div>
                       </div>
-                      <span className="font-medium text-foreground">{user.name}</span>
+                      <div className="text-center p-3 rounded-lg bg-teal-50">
+                        <Droplets className="w-6 h-6 text-teal-600 mx-auto mb-2" />
+                        <div className="text-lg font-bold text-teal-600">{userImpact.waterSaved}L</div>
+                        <div className="text-xs text-emerald-600">{t.waterSaved}</div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-emerald-600">{user.points.toLocaleString()}</span>
-                      <span className="text-xs text-muted-foreground">XP</span>
+
+                    {/* Progress to Next Level */}
+                    {/* Progress to Next Level */}
+                    <div className="space-y-2">
+                      {(() => {
+                        const xpInfo = calculateXpForNextLevel();
+                        const nextLevel = userLevel + 1;
+                        const totalForNext = xpInfo.current + xpInfo.needed;
+                        return (
+                          <>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-emerald-600">Progress to Level {nextLevel}</span>
+                              <span className="font-medium">{userXp} / {totalForNext} XP</span>
+                            </div>
+                            <Progress value={xpInfo.percentage} className="h-2" />
+                            <p className="text-xs text-emerald-600">{xpInfo.needed} XP {t.xpNeeded}</p>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
-                ))}
-              </div>
-              <Button
-                variant="outline"
-                className="w-full mt-4 bg-transparent"
-                onClick={() => console.log("[v0] View Full Leaderboard clicked")}
-              >
-                {t.viewFullLeaderboard}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
-        {/* Row 3: Education Hub */}
-        <div className="space-y-6">
-          {/* Educational Videos Section */}
-          <Card className="glass">
-            <CardHeader>
-              <CardTitle className="text-lg font-serif flex items-center gap-2">
-                <Play className="w-5 h-5 text-blue-600" />
-                {t.educationalVideos}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[
-                  {
-                    id: "video-1",
-                    type: "video",
-                    title: language === "en" ? "Climate Change Basics" : "जलवायु परिवर्तन मूल बातें",
-                    duration: language === "en" ? "5 min" : "5 मिनट",
-                    xp: "+5 XP",
-                    description: language === "en" ? "Understanding the fundamentals of climate change" : "जलवायु परिवर्तन की मूल बातें समझना",
-                  },
-                  {
-                    id: "video-2",
-                    type: "video", 
-                    title: language === "en" ? "Ocean Conservation" : "समुद्री संरक्षण",
-                    duration: language === "en" ? "8 min" : "8 मिनट",
-                    xp: "+8 XP",
-                    description: language === "en" ? "Protecting our marine ecosystems" : "हमारे समुद्री पारिस्थितिक तंत्र की रक्षा",
-                  },
-                  {
-                    id: "video-3",
-                    type: "video",
-                    title: language === "en" ? "Renewable Energy Solutions" : "नवीकरणीय ऊर्जा समाधान",
-                    duration: language === "en" ? "12 min" : "12 मिनट",
-                    xp: "+12 XP",
-                    description: language === "en" ? "Exploring sustainable energy alternatives" : "स्थायी ऊर्जा विकल्पों की खोज",
-                  },
-                  {
-                    id: "video-4",
-                    type: "video",
-                    title: language === "en" ? "Waste Management" : "अपशिष्ट प्रबंधन",
-                    duration: language === "en" ? "6 min" : "6 मिनट", 
-                    xp: "+6 XP",
-                    description: language === "en" ? "Effective waste reduction strategies" : "प्रभावी अपशिष्ट कमी रणनीतियां",
-                  },
-                  {
-                    id: "video-5",
-                    type: "video",
-                    title: language === "en" ? "Biodiversity Protection" : "जैव विविधता संरक्षण",
-                    duration: language === "en" ? "10 min" : "10 मिनट",
-                    xp: "+10 XP", 
-                    description: language === "en" ? "Preserving species and ecosystems" : "प्रजातियों और पारिस्थितिक तंत्र का संरक्षण",
-                  },
-                  {
-                    id: "video-6",
-                    type: "video",
-                    title: language === "en" ? "Sustainable Agriculture" : "टिकाऊ कृषि",
-                    duration: language === "en" ? "7 min" : "7 मिनट",
-                    xp: "+7 XP",
-                    description: language === "en" ? "Eco-friendly farming practices" : "पर्यावरण अनुकूल कृषि प्रथाएं",
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.id}
-                    className="group p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-all cursor-pointer hover:scale-105 relative"
-                  >
-                    {completedItems.has(item.id) && (
-                      <div className="absolute top-2 right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center z-10">
-                        <CheckCircle className="w-4 h-4 text-white" />
-                      </div>
-                    )}
-                    <div 
-                      className="w-full h-24 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden"
-                      onClick={() => handleEducationClick(item)}
-                    >
-                      <Play className="w-8 h-8 text-blue-600" />
-                    </div>
-                    <h4 className="font-medium text-foreground mb-1 group-hover:text-emerald-600 transition-colors">
-                      {item.title}
-                    </h4>
-                    <p className="text-xs text-muted-foreground mb-2">{item.description}</p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                      <span>{item.duration}</span>
-                      <Badge className="bg-emerald-100 text-emerald-700">{item.xp}</Badge>
-                    </div>
-                    <Button
-                      variant={completedItems.has(item.id) ? "secondary" : "outline"}
-                      size="sm"
-                      className="w-full"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        toggleCompletion(item.id, item)
-                      }}
-                    >
-                      {completedItems.has(item.id) ? t.completed : t.markComplete}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Research Papers & PDFs Section */}
-          <Card className="glass">
-            <CardHeader>
-              <CardTitle className="text-lg font-serif flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-green-600" />
-                {t.researchPapers}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[
-                  {
-                    id: "pdf-1",
-                    type: "pdf",
-                    title: "Marine Conservation Strategies",
-                    filename: "1-s2.0-S0308597X14003182-main.pdf",
-                    description: "Comprehensive research on ocean protection methods",
-                    pages: "15 pages",
-                    xp: "+15 XP",
-                  },
-                  {
-                    id: "pdf-2", 
-                    type: "pdf",
-                    title: "Sustainable Development Goals",
-                    filename: "1-s2.0-S0964569123001047-main.pdf",
-                    description: "Analysis of environmental sustainability targets",
-                    pages: "22 pages",
-                    xp: "+20 XP",
-                  },
-                  {
-                    id: "pdf-3",
-                    type: "pdf",
-                    title: "Climate Change Impact Assessment",
-                    filename: "10.1002@bse.2514.pdf",
-                    description: "Business strategies for climate adaptation",
-                    pages: "18 pages", 
-                    xp: "+18 XP",
-                  },
-                  {
-                    id: "pdf-4",
-                    type: "pdf",
-                    title: "Environmental Management Systems",
-                    filename: "10.1016@j.jenvman.2005.04.004.pdf",
-                    description: "Framework for environmental management",
-                    pages: "12 pages",
-                    xp: "+12 XP",
-                  },
-                  {
-                    id: "pdf-5",
-                    type: "pdf", 
-                    title: "Conservation Biology Principles",
-                    filename: "10.1111@cobi.13252.pdf",
-                    description: "Modern approaches to biodiversity conservation",
-                    pages: "25 pages",
-                    xp: "+25 XP",
-                  },
-                  {
-                    id: "pdf-6",
-                    type: "pdf",
-                    title: "Marine Resource Management",
-                    filename: "fmars-3-1542705.pdf",
-                    description: "Frontiers in marine science research",
-                    pages: "20 pages",
-                    xp: "+20 XP",
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.id}
-                    className="group p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-all cursor-pointer hover:scale-105 relative"
-                  >
-                    {completedItems.has(item.id) && (
-                      <div className="absolute top-2 right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center z-10">
-                        <CheckCircle className="w-4 h-4 text-white" />
-                      </div>
-                    )}
-                    <div 
-                      className="w-full h-24 bg-gradient-to-br from-green-100 to-blue-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden"
-                      onClick={() => handleEducationClick(item)}
-                    >
-                      <BookOpen className="w-8 h-8 text-green-600" />
-                    </div>
-                    <h4 className="font-medium text-foreground mb-1 group-hover:text-emerald-600 transition-colors">
-                      {item.title}
-                    </h4>
-                    <p className="text-xs text-muted-foreground mb-2">{item.description}</p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                      <span>{item.pages}</span>
-                      <Badge className="bg-emerald-100 text-emerald-700">{item.xp}</Badge>
-                    </div>
-                    <Button
-                      variant={completedItems.has(item.id) ? "secondary" : "outline"}
-                      size="sm"
-                      className="w-full"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        toggleCompletion(item.id, item)
-                      }}
-                    >
-                      {completedItems.has(item.id) ? t.completed : t.markComplete}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Row 4: My Dashboard Timeline */}
-        <Card className="glass">
-          <CardHeader>
-            <CardTitle className="text-lg font-serif flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-purple-600" />
-              {t.environmentalJourney}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[
-                {
-                  date: t.today,
-                  action:
-                    language === "en"
-                      ? "Joined Beach Cleanup Initiative"
-                      : language === "hi"
-                        ? "जलवायु परिवर्तन मूल बातें"
-                        : language === "bn"
-                          ? "মৌসুম পরিবর্তনের মূল বিষয়গুলো"
-                          : language === "ta"
-                            ? "வாதாவை மாற்றம் முதல் பாடுகள்"
-                            : language === "te"
-                              ? "వాతావరణ మార్పు ముఖ్యమైన పాయింట్లు"
-                              : "जलवायु परिवर्तन मूल बातें",
-                  duration:
-                    language === "en"
-                      ? "5 min"
-                      : language === "hi"
-                        ? "5 मिनट"
-                        : language === "bn"
-                          ? "৫ মিনিট"
-                          : language === "ta"
-                            ? "5 நிமிடங்கள்"
-                            : language === "te"
-                              ? "5 నిమిటాలు"
-                              : "5 मिनट",
-                  xp: "+5 XP",
-                  thumbnail: "climate",
-                },
-                {
-                  type: "article",
-                  title:
-                    language === "en"
-                      ? "Ocean Conservation Tips"
-                      : language === "hi"
-                        ? "समुद्री संरक्षण सुझाव"
-                        : language === "bn"
-                          ? "সমুদ্র সংরক্ষণের পরামর্শ"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "समुद्री संरक्षण सुझाव",
-                  duration:
-                    language === "en"
-                      ? "3 min read"
-                      : language === "hi"
-                        ? "3 मिनट पढ़ें"
-                        : language === "bn"
-                          ? "৩ মিনিট পড়ুন"
-                          : language === "ta"
-                            ? "3 நிமிடங்கள் படிக்கவும்"
-                            : language === "te"
-                              ? "3 నిమిటాలు పட్డి చూద్దాం"
-                              : "3 मिनट पढ़ें",
-                  xp: "+3 XP",
-                  thumbnail: "ocean",
-                },
-                {
-                  type: "quiz",
-                  title:
-                    language === "en"
-                      ? "Renewable Energy Quiz"
-                      : language === "hi"
-                        ? "नवीकरणीय ऊर्जा प्रश्नोत्तरी"
-                        : language === "bn"
-                          ? "পুনরুদ্ধ শক্তির পরীক্ষা"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "नवीकरणीय ऊर्जा प्रश्नोत्तरी",
-                  duration:
-                    language === "en"
-                      ? "10 questions"
-                      : language === "hi"
-                        ? "10 प्रश्न"
-                        : language === "bn"
-                          ? "১০টি প্রশ্ন"
-                          : language === "ta"
-                            ? "10 பிரশ்நங்கள்"
-                            : language === "te"
-                              ? "10 ప్రశ్నలు"
-                              : "10 प्रश्न",
-                  xp: "+10 XP",
-                  thumbnail: "energy",
-                },
-                {
-                  type: "video",
-                  title:
-                    language === "en"
-                      ? "Sustainable Living Guide"
-                      : language === "hi"
-                        ? "टिकाऊ जीवन गाइड"
-                        : language === "bn"
-                          ? "সামান্য জীবনের নির্মাণ"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "टिकाऊ जीवन गाइड",
-                  duration:
-                    language === "en"
-                      ? "8 min"
-                      : language === "hi"
-                        ? "8 मिनट"
-                        : language === "bn"
-                          ? "৮ মিনিট"
-                          : language === "ta"
-                            ? "8 நிமிடங்கள்"
-                            : language === "te"
-                              ? "8 నిమిటాలు"
-                              : "8 मिनट",
-                  xp: "+8 XP",
-                  thumbnail: "living",
-                },
-                {
-                  type: "article",
-                  title:
-                    language === "en"
-                      ? "Biodiversity Importance"
-                      : language === "hi"
-                        ? "जैव विविधता का महत्व"
-                        : language === "bn"
-                          ? "জৈব বিভিন্নতার গুরুত্ব"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "जैव विविधता का महत्व",
-                  duration:
-                    language === "en"
-                      ? "4 min read"
-                      : language === "hi"
-                        ? "4 मिनट पढ़ें"
-                        : language === "bn"
-                          ? "৪ মিনিট পড়ুন"
-                          : language === "ta"
-                            ? "4 நிமிடங்கள் படிக்கவும்"
-                            : language === "te"
-                              ? "4 నిమిటాలు పడ్డి చూద్దాం"
-                              : "4 मिनट पढ़ें",
-                  xp: "+4 XP",
-                  thumbnail: "biodiversity",
-                },
-                {
-                  type: "interactive",
-                  title:
-                    language === "en"
-                      ? "Carbon Footprint Calculator"
-                      : language === "hi"
-                        ? "कार्बन फुटप्रिंट कैलकुलेटर"
-                        : language === "bn"
-                          ? "কার্বন ফুটপ্রিংট ক্যালকুলেটর"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "कार्बन फुटप्रिंट कैलकुलेटर",
-                  duration:
-                    language === "en"
-                      ? "Interactive"
-                      : language === "hi"
-                        ? "इंटरैक्टिव"
-                        : language === "bn"
-                          ? "সীমাহীন"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "इंटरैक्टिव",
-                  xp: "+15 XP",
-                  thumbnail: "calculator",
-                },
-              ].map((item, index) => (
-                <div
-                  key={index}
-                  className="group p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-all cursor-pointer hover:scale-105"
-                  onClick={() => handleEducationClick(item)}
+          {activeSection === "my-active-projects" && (
+            <Card className="glass">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-lg font-serif">{t.activeProjects}</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-transparent"
+                  onClick={() => console.log("[v0] Join More clicked")}
                 >
-                  <div className="w-full h-24 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden">
-                    {item.type === "video" && <Play className="w-8 h-8 text-blue-600" />}
-                    {item.type === "article" && <BookOpen className="w-8 h-8 text-green-600" />}
-                    {item.type === "quiz" && <Award className="w-8 h-8 text-yellow-600" />}
-                    {item.type === "interactive" && <TrendingUp className="w-8 h-8 text-purple-600" />}
-                  </div>
-                  <h4 className="font-medium text-foreground mb-1 group-hover:text-emerald-600 transition-colors">
-                    {item.title}
-                  </h4>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{item.duration}</span>
-                    <Badge className="bg-emerald-100 text-emerald-700">{item.xp}</Badge>
-                  </div>
+                  <Plus className="w-4 h-4 mr-2" />
+                  {t.joinMore}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {/* ... existing active projects content ... */}
+                <div className="space-y-4">
+                  {[
+                    {
+                      title: language === "en" ? "Community Garden Project" : "सामुदायिक बगीचा परियोजना",
+                      progress: 75,
+                      participants: 24,
+                      deadline: language === "en" ? "2 weeks left" : "2 सप्ताह बचे",
+                      impact: "+15 XP",
+                    },
+                    {
+                      title: language === "en" ? "Beach Cleanup Initiative" : "समुद्री तट सफाई पहल",
+                      progress: 45,
+                      participants: 18,
+                      deadline: language === "en" ? "1 month left" : "1 महीना बचा",
+                      impact: "+25 XP",
+                    },
+                    {
+                      title: language === "en" ? "Solar Panel Installation" : "सोलर पैनल स्थापना",
+                      progress: 90,
+                      participants: 12,
+                      deadline: language === "en" ? "3 days left" : "3 दिन बचे",
+                      impact: "+40 XP",
+                    },
+                  ].map((project, index) => (
+                    <div
+                      key={index}
+                      className="p-4 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-foreground">{project.title}</h4>
+                        <Badge className="bg-emerald-100 text-emerald-700">{project.impact}</Badge>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-emerald-600 mb-3">
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {project.participants} {t.participants}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {project.deadline}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Progress value={project.progress} className="flex-1 h-2" />
+                        <span className="text-sm font-medium">{project.progress}%</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          )}
 
-        {/* Row 4: My Dashboard Timeline */}
-        <Card className="glass">
-          <CardHeader>
-            <CardTitle className="text-lg font-serif flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-purple-600" />
-              {t.environmentalJourney}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[
-                {
-                  date: t.today,
-                  action:
-                    language === "en"
-                      ? "Joined Beach Cleanup Initiative"
-                      : language === "hi"
-                        ? "समुद्री तट सफाई पहल में शामिल हुए"
-                        : language === "bn"
-                          ? "সমুদ্রী ট্যাট সাফাই প্রতিষ্ঠানে যোগ দিয়েছেন"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "समुद्री तट सफाई पहल में शामिल हुए",
-                  badge:
-                    language === "en"
-                      ? "Participant"
-                      : language === "hi"
-                        ? "प्रतिभागी"
-                        : language === "bn"
-                          ? "অংশগ্রহণকারী"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "प्रतिभागी",
-                  icon: Droplets,
-                  color: "text-blue-600",
-                },
-                {
-                  date:
-                    language === "en"
-                      ? "2 days ago"
-                      : language === "hi"
-                        ? "2 दिन पहले"
-                        : language === "bn"
-                          ? "২ দিন আগে"
-                          : language === "ta"
-                            ? "2 நாட்கள் முன்பு"
-                            : language === "te"
-                              ? "2 రోజులు మునుపు"
-                              : "2 दिन पहले",
-                  action:
-                    language === "en"
-                      ? "Completed Solar Panel Installation"
-                      : language === "hi"
-                        ? "सोलर पैनल स्थापना पूरी की"
-                        : language === "bn"
-                          ? "সোলার প্যানেল স্থাপনা সম্পূর্ণ করেছেন"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "सोलर पैनल स्थापना पूरी की",
-                  badge:
-                    language === "en"
-                      ? "Achievement"
-                      : language === "hi"
-                        ? "उपलब्धि"
-                        : language === "bn"
-                          ? "সাহায্য"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "उপলब्धि",
-                  icon: Award,
-                  color: "text-yellow-600",
-                },
-                {
-                  date:
-                    language === "en"
-                      ? "1 week ago"
-                      : language === "hi"
-                        ? "1 सप्ताह पहले"
-                        : language === "bn"
-                          ? "১ সপ্তাহ আগে"
-                          : language === "ta"
-                            ? "1 வாரம் முன்பு"
-                            : language === "te"
-                              ? "1 సప్టామ్యాలు మునుపు"
-                              : "1 सप्ताह पहले",
-                  action:
-                    language === "en"
-                      ? "Reported illegal dumping site"
-                      : language === "hi"
-                        ? "अवैध डंपिंग साइट की रिपोर्ट की"
-                        : language === "bn"
-                          ? "অবৈধ ডাম্পিং সাইট প্রতিবেদন করেছেন"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "अवैध डंपिंग साइट की रिपोर्ट की",
-                  badge:
-                    language === "en"
-                      ? "Reporter"
-                      : language === "hi"
-                        ? "रिपोर्टर"
-                        : language === "bn"
-                          ? "প্রতিবেদক"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "रिपोर्टर",
-                  icon: Camera,
-                  color: "text-orange-600",
-                },
-                {
-                  date:
-                    language === "en"
-                      ? "2 weeks ago"
-                      : language === "hi"
-                        ? "2 सप्ताह पहले"
-                        : language === "bn"
-                          ? "২ সপ্তাহ আগে"
-                          : language === "ta"
-                            ? "2 வாரங்கள் முன்பு"
-                            : language === "te"
-                              ? "2 సప్టామ్యాలు మునుపు"
-                              : "2 सप्ताह पहले",
-                  action:
-                    language === "en"
-                      ? "Planted 10 trees in Community Garden"
-                      : language === "hi"
-                        ? "सामुदायिक बगीचे में 10 पेड़ लगाए"
-                        : language === "bn"
-                          ? "সামুদায়িক বাগি মধ্যে ১০টি গাছ লাগানো"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "सामुदायिक बगीचे में 10 पेड़ लगाए",
-                  badge:
-                    language === "en"
-                      ? "Contributor"
-                      : language === "hi"
-                        ? "योगदानकर्ता"
-                        : language === "bn"
-                          ? "অংশগ্রহণকারী"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "योगदानकर्ता",
-                  icon: TreePine,
-                  color: "text-green-600",
-                },
-                {
-                  date:
-                    language === "en"
-                      ? "1 month ago"
-                      : language === "hi"
-                        ? "1 महीना पहले"
-                        : language === "bn"
-                          ? "১ মাস আগে"
-                          : language === "ta"
-                            ? "1 மாதம் முன்பு"
-                            : language === "te"
-                              ? "1 మాసం మునుపు"
-                              : "1 महीना पहले",
-                  action:
-                    language === "en"
-                      ? "Reached Level 7 Eco-Warrior"
-                      : language === "hi"
-                        ? "स्तर 7 पर्यावरण योद्धा तक पहुंचे"
-                        : language === "bn"
-                          ? "স্তর ৭ পরিবেশ যোদ্ধার পরিবেশে পৌঁছেছেন"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "स्तर 7 पर्यावरण योद्धा तक पहुंचे",
-                  badge:
-                    language === "en"
-                      ? "Level Up"
-                      : language === "hi"
-                        ? "स्तर वृद्धि"
-                        : language === "bn"
-                          ? "স্তর বাড়ানো"
-                          : language === "ta"
-                            ? "சுற்றுச்சூழல் பொருள் பாடு"
-                            : language === "te"
-                              ? "ప్రక్టీకా ప్రాజెక్టు"
-                              : "स्तर वृद्धि",
-                  icon: Star,
-                  color: "text-purple-600",
-                },
-              ].map((activity, index) => (
-                <div key={index} className="flex items-center gap-4 p-3 rounded-lg bg-muted/30">
-                  <div className={`w-10 h-10 rounded-full bg-muted flex items-center justify-center ${activity.color}`}>
-                    <activity.icon className="w-5 h-5" />
+          {activeSection === "report-issue" && (
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle className="text-lg font-serif flex items-center gap-2">
+                  <Camera className="w-5 h-5 text-orange-600" />
+                  {t.reportIssue}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center space-y-4">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center mx-auto">
+                    <AlertTriangle className="w-10 h-10 text-white" />
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-foreground">{activity.action}</p>
-                    <p className="text-sm text-muted-foreground">{activity.date}</p>
+                  <div>
+                    <h3 className="font-medium text-foreground mb-2">{t.spottedIssue}</h3>
+                    <p className="text-sm text-emerald-600 mb-4">{t.reportDescription}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">{activity.badge}</Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => console.log("[v0] Share clicked for:", activity.action)}
-                    >
-                      <Share2 className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => console.log("[v0] Like clicked for:", activity.action)}
-                    >
-                      <Heart className="w-4 h-4" />
-                    </Button>
+                  <Link href="/report-issue">
+                    <Button className="w-full bg-emerald-500 hover:bg-emerald-600 text-white">{t.reportButton}</Button>
+                  </Link>
+                  <div className="grid grid-cols-2 gap-3 text-xs text-emerald-600">
+                    <div className="flex items-center gap-1">
+                      <Camera className="w-3 h-3" />
+                      <span>{t.photoEvidence}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      <span>{t.gpsLocation}</span>
+                    </div>
                   </div>
                 </div>
-              ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === "community-leaderboard" && (
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle className="text-lg font-serif flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-yellow-600" />
+                  {t.leaderboard}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* ... existing leaderboard content ... */}
+                <div className="space-y-3">
+                  {[
+                    { name: user?.name || "Priya Sharma", points: userXp > 3240 ? userXp : 3240, rank: 1, change: "up", avatar: user?.name ? user?.name.substring(0, 2).toUpperCase() : "PS" },
+                    { name: "Rahul Kumar", points: 2890, rank: 2, change: "same", avatar: "RK" },
+                    { name: "Arjun Patel", points: 2450, rank: 3, change: "up", avatar: "AP" },
+                    { name: "Sneha Gupta", points: 2180, rank: 4, change: "down", avatar: "SG" },
+                    { name: "Vikram Singh", points: 1950, rank: 5, change: "up", avatar: "VS" },
+                  ].map((leaderboardUser, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                        leaderboardUser.name === user?.name ? "bg-emerald-100 border border-emerald-200" : "bg-emerald-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold text-emerald-600">#{leaderboardUser.rank}</span>
+                          {leaderboardUser.change === "up" && <TrendingUp className="w-3 h-3 text-green-500" />}
+                          {leaderboardUser.change === "down" && <TrendingUp className="w-3 h-3 text-red-500 rotate-180" />}
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center">
+                          <span className="text-xs font-bold text-white">{leaderboardUser.avatar}</span>
+                        </div>
+                        <span className="font-medium text-foreground">{leaderboardUser.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-emerald-600">{leaderboardUser.points.toLocaleString()}</span>
+                        <span className="text-xs text-emerald-600">XP</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full mt-4 bg-transparent"
+                  onClick={() => console.log("[v0] View Full Leaderboard clicked")}
+                >
+                  {t.viewFullLeaderboard}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === "education-hub" && (
+            <div className="space-y-6">
+              <Card className="glass">
+                <CardHeader>
+                  <CardTitle className="text-lg font-serif flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-blue-600" />
+                    {t.educationHub}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-2 mb-6">
+                    <Button
+                      variant={educationSubsection === "videos" ? "default" : "outline"}
+                      size="sm"
+                      className={`${
+                        educationSubsection === "videos"
+                          ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                          : "hover:bg-emerald-50"
+                      }`}
+                      onClick={() => setEducationSubsection("videos")}
+                    >
+                      <Video className="w-4 h-4 mr-2" />
+                      {t.educationalVideos}
+                    </Button>
+                    <Button
+                      variant={educationSubsection === "pdfs" ? "default" : "outline"}
+                      size="sm"
+                      className={`${
+                        educationSubsection === "pdfs"
+                          ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                          : "hover:bg-emerald-50"
+                      }`}
+                      onClick={() => setEducationSubsection("pdfs")}
+                    >
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      {language === "en" ? "Research Papers" : "शोध पत्र"}
+                    </Button>
+                  </div>
+
+                  {educationSubsection === "videos" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {[
+                        {
+                          id: "video-1",
+                          type: "video",
+                          title: language === "en" ? "Climate Change Basics" : "जलवायु परिवर्तन मूल बातें",
+                          duration: language === "en" ? "5 min" : "5 मिनट",
+                          xp: "+5 XP",
+                          description: language === "en" ? "Understanding the fundamentals of climate change" : "जलवायु परिवर्तन की मूल बातें समझना",
+                          level: language === "en" ? "Beginner" : "शुरुआती",
+                        },
+                        {
+                          id: "video-2",
+                          type: "video", 
+                          title: language === "en" ? "Ocean Conservation" : "समुद्री संरक्षण",
+                          duration: language === "en" ? "8 min" : "8 मिनट",
+                          xp: "+8 XP",
+                          description: language === "en" ? "Protecting our marine ecosystems" : "हमारे समुद्री पारिस्थितिक तंत्र की रक्षा",
+                          level: language === "en" ? "Intermediate" : "मध्यम",
+                        },
+                        {
+                          id: "video-3",
+                          type: "video",
+                          title: language === "en" ? "Renewable Energy Solutions" : "नवीकरणीय ऊर्जा समाधान",
+                          duration: language === "en" ? "12 min" : "12 मिनट",
+                          xp: "+12 XP",
+                          description: language === "en" ? "Exploring sustainable energy alternatives" : "स्थायी ऊर्जा विकल्पों की खोज",
+                          level: language === "en" ? "Advanced" : "उन्नत",
+                        },
+                        {
+                          id: "video-4",
+                          type: "video",
+                          title: language === "en" ? "Sustainable Agriculture" : "टिकाऊ कृषि",
+                          duration: language === "en" ? "6 min" : "6 मिनट",
+                          xp: "+6 XP",
+                          description: language === "en" ? "Eco-friendly farming practices" : "पर्यावरण अनुकूल कृषि प्रथाएं",
+                          level: language === "en" ? "Beginner" : "शुरुआती",
+                        },
+                        {
+                          id: "video-5",
+                          type: "video",
+                          title: language === "en" ? "Wildlife Protection" : "वन्यजीव संरक्षण",
+                          duration: language === "en" ? "10 min" : "10 मिनट",
+                          xp: "+10 XP",
+                          description: language === "en" ? "Preserving species and ecosystems" : "प्रजातियों और पारिस्थितिक तंत्र का संरक्षण",
+                          level: language === "en" ? "Intermediate" : "मध्यम",
+                        },
+                        {
+                          id: "video-6",
+                          type: "video",
+                          title: language === "en" ? "Green Technology" : "हरित प्रौद्योगिकी",
+                          duration: language === "en" ? "15 min" : "15 मिनट",
+                          xp: "+15 XP",
+                          description: language === "en" ? "Eco-friendly technological innovations" : "पर्यावरण अनुकूल तकनीकी नवाचार",
+                          level: language === "en" ? "Advanced" : "उन्नत",
+                        },
+                      ].map((video) => (
+                        <div
+                          key={video.id}
+                          className="group p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-all cursor-pointer hover:scale-105 relative"
+                        >
+                          {completedItems.has(video.id) && (
+                            <div className="absolute top-2 right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center z-10">
+                              <CheckCircle className="w-4 h-4 text-white" />
+                            </div>
+                          )}
+                          <div 
+                            className="w-full h-24 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden"
+                            onClick={() => handleEducationClick(video)}
+                          >
+                            <Play className="w-8 h-8 text-blue-600" />
+                            <div className="absolute top-2 right-2">
+                              <Badge className="bg-blue-100 text-blue-700 text-xs">
+                                {video.level}
+                              </Badge>
+                            </div>
+                          </div>
+                          <h4 className="font-medium text-foreground mb-1 group-hover:text-emerald-600 transition-colors">
+                            {video.title}
+                          </h4>
+                          <p className="text-xs text-muted-foreground mb-2">{video.description}</p>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                            <span>{video.duration}</span>
+                            <Badge className="bg-emerald-100 text-emerald-700">{video.xp}</Badge>
+                          </div>
+                          <Button
+                            variant={completedItems.has(video.id) ? "secondary" : "outline"}
+                            size="sm"
+                            className="w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleCompletion(video.id, video);
+                            }}
+                          >
+                            {completedItems.has(video.id) ? "Completed" : "Mark as Complete"}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* PDF Section */}
+                  {educationSubsection === "pdfs" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {[
+                        {
+                          id: "pdf-1",
+                          type: "pdf",
+                          title: "Marine Conservation Strategies",
+                          filename: "1-s2.0-S0308597X14003182-main.pdf",
+                          description: "Comprehensive research on ocean protection methods",
+                          pages: "15 pages",
+                          xp: "+15 XP",
+                        },
+                        {
+                          id: "pdf-2", 
+                          type: "pdf",
+                          title: "Sustainable Development Goals",
+                          filename: "1-s2.0-S0964569123001047-main.pdf",
+                          description: "Analysis of environmental sustainability targets",
+                          pages: "22 pages",
+                          xp: "+20 XP",
+                        },
+                        {
+                          id: "pdf-3",
+                          type: "pdf",
+                          title: "Climate Change Impact Assessment",
+                          filename: "10.1002@bse.2514.pdf",
+                          description: "Business strategies for climate adaptation",
+                          pages: "18 pages", 
+                          xp: "+18 XP",
+                        },
+                        {
+                          id: "pdf-4",
+                          type: "pdf",
+                          title: "Environmental Management Systems",
+                          filename: "10.1016@j.jenvman.2005.04.004.pdf",
+                          description: "Framework for environmental management",
+                          pages: "12 pages",
+                          xp: "+12 XP",
+                        },
+                        {
+                          id: "pdf-5",
+                          type: "pdf", 
+                          title: "Conservation Biology Principles",
+                          filename: "10.1111@cobi.13252.pdf",
+                          description: "Modern approaches to biodiversity conservation",
+                          pages: "25 pages",
+                          xp: "+25 XP",
+                        },
+                        {
+                          id: "pdf-6",
+                          type: "pdf",
+                          title: "Marine Resource Management",
+                          filename: "fmars-3-1542705.pdf",
+                          description: "Frontiers in marine science research",
+                          pages: "20 pages",
+                          xp: "+20 XP",
+                        },
+                      ].map((item) => (
+                        <div
+                          key={item.id}
+                          className="group p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-all cursor-pointer hover:scale-105 relative"
+                        >
+                          {completedItems.has(item.id) && (
+                            <div className="absolute top-2 right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center z-10">
+                              <CheckCircle className="w-4 h-4 text-white" />
+                            </div>
+                          )}
+                          <div 
+                            className="w-full h-24 bg-gradient-to-br from-green-100 to-blue-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden"
+                            onClick={() => handleEducationClick(item)}
+                          >
+                            <BookOpen className="w-8 h-8 text-green-600" />
+                          </div>
+                          <h4 className="font-medium text-foreground mb-1 group-hover:text-emerald-600 transition-colors">
+                            {item.title}
+                          </h4>
+                          <p className="text-xs text-muted-foreground mb-2">{item.description}</p>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                            <span>{item.pages}</span>
+                            <Badge className="bg-emerald-100 text-emerald-700">{item.xp}</Badge>
+                          </div>
+                          <Button
+                            variant={completedItems.has(item.id) ? "secondary" : "outline"}
+                            size="sm"
+                            className="w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleCompletion(item.id, item);
+                            }}
+                          >
+                            {completedItems.has(item.id) ? "Completed" : "Mark as Complete"}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
-        {/* Quiz Modal */}
-        <QuizModal
-          isOpen={quizModalOpen}
-          onClose={() => setQuizModalOpen(false)}
-          materialTitle={quizMaterial?.title || ''}
-          materialType={quizMaterial?.type || ''}
-          materialId={quizMaterial?.id || ''}
-          materialDescription={quizMaterial?.description}
-          onQuizComplete={handleQuizComplete}
-        />
-        
-        {/* XP Animation */}
-        <XPAnimation 
-          show={showXpAnimation} 
-          xp={xpEarned} 
-          onComplete={() => setShowXpAnimation(false)} 
-        />
-      </main>
-    </div>
+          )}
+
+          {activeSection === "environmental-journey" && (
+            <div className="space-y-6">
+              <EnvironmentalJourney 
+                activityHistory={activityHistory} 
+                language={language} 
+                translations={translations} 
+              />
+            </div>
+          )}
+        </main>
+      </div>
+      
+      {/* XP Animation for quiz/educational content */}
+      <XPAnimation 
+        show={showXP} 
+        xp={earnedXP} 
+        onComplete={handleXPAnimationComplete}
+      />
+      
+      {/* XP Animation for issue reporting */}
+      <XPAnimation 
+        show={showIssueXP} 
+        xp={10} 
+        onComplete={handleXPAnimationComplete}
+      />
+      
+      {/* Quiz Modal */}
+      <QuizModal
+        isOpen={quizModalOpen}
+        onClose={() => setQuizModalOpen(false)}
+        materialTitle={quizMaterial?.title || ''}
+        materialType={quizMaterial?.type || ''}
+        materialId={quizMaterial?.id || ''}
+        materialDescription={quizMaterial?.description}
+        onQuizComplete={handleQuizComplete}
+      />
     </div>
   )
 }

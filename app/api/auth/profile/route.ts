@@ -41,6 +41,13 @@ export async function GET(request: NextRequest) {
         name: user.name,
         role: user.role,
         isVerified: user.isVerified,
+        // Progress fields
+        xpPoints: user.xpPoints || 0,
+        level: user.level || 1,
+        environmentalImpact: user.environmentalImpact || { treesPlanted: 0, co2Offset: 0, waterSaved: 0 },
+        activityHistory: user.activityHistory || [],
+        completedItems: user.completedItems || [],
+        achievements: user.achievements || [],
         // Role-specific fields
         ...(user.role === 'government' && {
           department: user.department,

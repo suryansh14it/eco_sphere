@@ -9,6 +9,17 @@ interface User {
   name: string;
   role: 'government' | 'researcher' | 'user' | 'ngo';
   isVerified: boolean;
+  // Progress fields
+  xpPoints?: number;
+  level?: number;
+  environmentalImpact?: {
+    treesPlanted: number;
+    co2Offset: number;
+    waterSaved: number;
+  };
+  activityHistory?: Array<any>;
+  completedItems?: string[];
+  achievements?: string[];
   // Role-specific fields
   department?: string;
   position?: string;
@@ -144,7 +155,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = async (): Promise<void> => {
     setLoading(true);
-    await fetchUser();
+    console.log('Refreshing user data...');
+    const updatedUser = await fetchUser();
+    console.log('Updated user data:', updatedUser);
+    if (updatedUser) {
+      console.log('User XP after refresh:', updatedUser.xpPoints);
+    }
     setLoading(false);
   };
 

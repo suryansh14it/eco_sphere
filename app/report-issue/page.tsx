@@ -1,11 +1,16 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/components/auth-provider"
+import { useRouter } from "next/navigation"
+import { toast } from "@/hooks/use-toast"
 import {
   Bell,
   User,
@@ -19,38 +24,200 @@ import {
   Droplets,
   Factory,
   Trash2,
+  Loader2,
+  CheckCircle,
+  XCircle,
+  Star,
+  MapPinIcon,
 } from "lucide-react"
 import Link from "next/link"
 
+interface LocationData {
+  formatted: string;
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
+interface ValidationResult {
+  isValid: boolean;
+  severity: number;
+  confidence: number;
+  environmentalImpact: {
+    type: string;
+    description: string;
+  };
+  recommendedXP: number;
+  shouldEscalate: boolean;
+  feedback: string;
+  suggestions: string[];
+}
+
 export default function ReportIssuePage() {
+  const { user, loading, refreshUser } = useAuth();
+  const router = useRouter();
   const [issueTitle, setIssueTitle] = useState("")
   const [issueLocation, setIssueLocation] = useState("")
   const [issueDescription, setIssueDescription] = useState("")
   const [issueCategory, setIssueCategory] = useState("")
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isGettingLocation, setIsGettingLocation] = useState(false)
+  const [locationData, setLocationData] = useState<LocationData | null>(null)
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
+  const [showResults, setShowResults] = useState(false)
 
-  const handleSubmitReport = () => {
-    console.log("[v0] Submitting report:", {
-      issueTitle,
-      issueLocation,
-      issueDescription,
-      issueCategory,
-      uploadedFiles,
-    })
-    // Reset form
-    setIssueTitle("")
-    setIssueLocation("")
-    setIssueDescription("")
-    setIssueCategory("")
-    setUploadedFiles([])
-    alert("Report submitted successfully! You earned +10 XP")
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-green-50 to-lime-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-lg text-green-700">Loading...</p>
+        </div>
+      </div>
+    );
   }
+
+  if (!user) {
+    return null;
+  }
+
+  // Get current location using browser geolocation
+  const getCurrentLocation = async () => {
+    setIsGettingLocation(true);
+    
+    try {
+      if (!navigator.geolocation) {
+        throw new Error("Geolocation is not supported by this browser");
+      }
+      
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000
+        });
+      });
+      
+      const { latitude, longitude } = position.coords;
+      
+      // Get address from coordinates using OpenCage
+      const response = await fetch('/api/location/reverse-geocode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ latitude, longitude })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setLocationData(data.location);
+          setIssueLocation(data.location.formatted);
+          toast({
+            title: "Location detected",
+            description: "Your current location has been filled in",
+            variant: "default"
+          });
+        }
+      }
+      
+    } catch (error: any) {
+      console.error("Error getting location:", error);
+      toast({
+        title: "Location Error",
+        description: error.message || "Could not get your location. Please enter manually.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGettingLocation(false);
+    }
+  };
+
+  const handleSubmitReport = async () => {
+    if (!user) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('userId', user.id);
+      formData.append('title', issueTitle);
+      formData.append('description', issueDescription);
+      formData.append('category', issueCategory);
+      formData.append('location', issueLocation);
+      
+      if (locationData) {
+        formData.append('latitude', locationData.coordinates.latitude.toString());
+        formData.append('longitude', locationData.coordinates.longitude.toString());
+      }
+      
+      // Add images
+      uploadedFiles.forEach(file => {
+        formData.append('images', file);
+      });
+      
+      const response = await fetch('/api/environmental-issue/submit', {
+        method: 'POST',
+        body: formData
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setValidationResult(result.validation);
+        setShowResults(true);
+        
+        toast({
+          title: "Report Submitted!",
+          description: `You earned ${result.xpAwarded} XP for your report`,
+          variant: "default"
+        });
+
+        // Ensure dashboard/user context reflects new XP & level
+        try {
+          await refreshUser();
+        } catch {}
+      } else {
+        throw new Error(result.message || 'Failed to submit report');
+      }
+      
+    } catch (error: any) {
+      console.error('Error submitting report:', error);
+      toast({
+        title: "Submission Error",
+        description: error.message || "Failed to submit your report. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const resetForm = () => {
+    setIssueTitle("");
+    setIssueLocation("");
+    setIssueDescription("");
+    setIssueCategory("");
+    setUploadedFiles([]);
+    setLocationData(null);
+    setValidationResult(null);
+    setShowResults(false);
+  };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
-    setUploadedFiles((prev) => [...prev, ...files])
-    console.log("[v0] Files uploaded:", files.length)
-  }
+    const files = Array.from(event.target.files || []);
+    setUploadedFiles((prev) => [...prev, ...files]);
+  };
 
   const issueCategories = [
     { id: "pollution", label: "Water/Air Pollution", icon: Droplets, color: "text-blue-600" },
@@ -86,7 +253,7 @@ export default function ReportIssuePage() {
               <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
                 <User className="w-3 h-3 text-white" />
               </div>
-              <span className="text-sm font-medium">Arjun Patel</span>
+              <span className="text-sm font-medium">{user?.name || 'User'}</span>
             </div>
           </div>
         </div>
@@ -162,11 +329,26 @@ export default function ReportIssuePage() {
                   variant="outline"
                   size="sm"
                   className="bg-transparent"
-                  onClick={() => console.log("[v0] Get current location clicked")}
+                  onClick={getCurrentLocation}
+                  disabled={isGettingLocation}
                 >
-                  <MapPin className="w-4 h-4" />
+                  {isGettingLocation ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <MapPin className="w-4 h-4" />
+                  )}
                 </Button>
               </div>
+              {locationData && (
+                <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded text-sm">
+                  <div className="flex items-center gap-2">
+                    <MapPinIcon className="w-4 h-4 text-emerald-600" />
+                    <span className="text-emerald-700">
+                      GPS Location: {locationData.coordinates.latitude.toFixed(6)}, {locationData.coordinates.longitude.toFixed(6)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Detailed Description */}
@@ -213,32 +395,156 @@ export default function ReportIssuePage() {
               </div>
             </div>
 
+            {/* Validation Results */}
+            {showResults && validationResult && (
+              <div className={`border-2 rounded-lg p-6 ${
+                validationResult.isValid 
+                  ? 'border-green-200 bg-green-50' 
+                  : 'border-amber-200 bg-amber-50'
+              }`}>
+                <div className="flex items-center gap-3 mb-4">
+                  {validationResult.isValid ? (
+                    <CheckCircle className="w-8 h-8 text-green-600" />
+                  ) : (
+                    <XCircle className="w-8 h-8 text-amber-600" />
+                  )}
+                  <div>
+                    <h3 className={`font-bold text-lg ${
+                      validationResult.isValid ? 'text-green-800' : 'text-amber-800'
+                    }`}>
+                      {validationResult.isValid ? 'Report Validated!' : 'Report Needs Review'}
+                    </h3>
+                    <p className={`text-sm ${
+                      validationResult.isValid ? 'text-green-700' : 'text-amber-700'
+                    }`}>
+                      {validationResult.feedback}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="text-center p-3 bg-white/50 rounded-lg">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <Star className="w-4 h-4 text-yellow-500" />
+                      <span className="font-medium">Severity</span>
+                    </div>
+                    <div className="text-2xl font-bold text-gray-800">
+                      {validationResult.severity}/10
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-white/50 rounded-lg">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <CheckCircle className="w-4 h-4 text-blue-500" />
+                      <span className="font-medium">Confidence</span>
+                    </div>
+                    <div className="text-2xl font-bold text-gray-800">
+                      {validationResult.confidence}/10
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-white/50 rounded-lg">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <Star className="w-4 h-4 text-emerald-500" />
+                      <span className="font-medium">XP Earned</span>
+                    </div>
+                    <div className="text-2xl font-bold text-emerald-600">
+                      +{validationResult.recommendedXP}
+                    </div>
+                  </div>
+                </div>
+                
+                {validationResult.environmentalImpact && (
+                  <div className="mb-4 p-3 bg-white/50 rounded-lg">
+                    <h4 className="font-medium mb-1">Environmental Impact</h4>
+                    <p className="text-sm text-gray-700">
+                      <strong>Type:</strong> {validationResult.environmentalImpact.type}
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      <strong>Description:</strong> {validationResult.environmentalImpact.description}
+                    </p>
+                  </div>
+                )}
+                
+                {validationResult.suggestions && validationResult.suggestions.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="font-medium mb-2">Suggestions for Future Reports:</h4>
+                    <ul className="text-sm space-y-1">
+                      {validationResult.suggestions.map((suggestion, index) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="text-blue-500 mt-1">•</span>
+                          <span>{suggestion}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                {validationResult.shouldEscalate && (
+                  <div className="bg-blue-100 border border-blue-300 rounded p-3">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-blue-600" />
+                      <span className="font-medium text-blue-800">
+                        This issue has been flagged for researcher attention
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex gap-3 mt-4">
+                  <Button 
+                    onClick={resetForm}
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
+                  >
+                    Report Another Issue
+                  </Button>
+                  <Link href="/user" className="flex-1">
+                    <Button variant="outline" className="w-full bg-transparent">
+                      Back to Dashboard
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            )}
+
             {/* Additional Information */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-800 mb-2">Reporting Guidelines</h4>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• Be as specific as possible with location details</li>
-                <li>• Include photos if safe to do so</li>
-                <li>• Report urgent issues to local authorities immediately</li>
-                <li>• Your report will be reviewed within 24-48 hours</li>
-              </ul>
-            </div>
+            {!showResults && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-medium text-blue-800 mb-2">Reporting Guidelines</h4>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• Be as specific as possible with location details</li>
+                  <li>• Include photos if safe to do so</li>
+                  <li>• Report urgent issues to local authorities immediately</li>
+                  <li>• Your report will be reviewed using AI validation</li>
+                  <li>• High-quality reports earn more XP (10-50 points)</li>
+                </ul>
+              </div>
+            )}
 
             {/* Submit Button */}
-            <div className="flex gap-4">
-              <Button
-                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3"
-                onClick={handleSubmitReport}
-                disabled={!issueTitle || !issueLocation || !issueDescription}
-              >
-                Submit Report (+10 XP)
-              </Button>
-              <Link href="/user">
-                <Button variant="outline" className="px-8 py-3 bg-transparent">
-                  Cancel
+            {!showResults && (
+              <div className="flex gap-4">
+                <Button
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3"
+                  onClick={handleSubmitReport}
+                  disabled={!issueTitle || !issueLocation || !issueDescription || isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Analyzing Report...
+                    </>
+                  ) : (
+                    'Submit Report (AI Validation)'
+                  )}
                 </Button>
-              </Link>
-            </div>
+                <Link href="/user">
+                  <Button variant="outline" className="px-8 py-3 bg-transparent">
+                    Cancel
+                  </Button>
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
