@@ -11,6 +11,9 @@ import { UserMenu } from "@/components/user-menu"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { AIAnalysisModal } from "@/components/ai-analysis-modal"
+import { GovRequestDetailsModal, type GovNewRequestDetail } from "@/components/government/request-details-modal"
+import { GovOngoingDetailsModal, type GovOngoingDetail } from "@/components/government/ongoing-details-modal"
+import { GovCompletedDetailsModal, type GovCompletedDetail } from "@/components/government/completed-details-modal"
 import {
   Search,
   Bell,
@@ -60,6 +63,12 @@ export default function GovernmentDashboard() {
   const [fundingFilter, setFundingFilter] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [activeSection, setActiveSection] = useState("dashboard")
+  const [requestModalOpen, setRequestModalOpen] = useState(false)
+  const [selectedRequest, setSelectedRequest] = useState<GovNewRequestDetail | null>(null)
+  const [ongoingModalOpen, setOngoingModalOpen] = useState(false)
+  const [selectedOngoing, setSelectedOngoing] = useState<GovOngoingDetail | null>(null)
+  const [completedModalOpen, setCompletedModalOpen] = useState(false)
+  const [selectedCompleted, setSelectedCompleted] = useState<GovCompletedDetail | null>(null)
 
   const activeProjectsCount = useCountUp(142, 800, 100)
   const pendingRequestsCount = useCountUp(37, 600, 200)
@@ -85,62 +94,101 @@ export default function GovernmentDashboard() {
   }
 
   // Enhanced project data with descriptions for AI analysis
-  const projectRequests = [
+  const projectRequests: GovNewRequestDetail[] = [
     {
+      id: "req-urban-forest",
       title: "Urban Forest Restoration",
       organization: "Green Cities NGO",
-      funding: "₹1.5Cr",
       location: "Mumbai, MH",
       priority: "High",
-      description: "Comprehensive urban forest restoration project aimed at planting 10,000 native trees across Mumbai's residential and commercial areas. The project focuses on improving air quality, reducing urban heat island effect, and creating green corridors for wildlife. Includes community engagement programs and long-term maintenance plans."
+      description: "Comprehensive urban forest restoration project aimed at planting 10,000 native trees across Mumbai's residential and commercial areas. The project focuses on improving air quality, reducing urban heat island effect, and creating green corridors for wildlife. Includes community engagement programs and long-term maintenance plans.",
+      requestedFunding: "₹1.5Cr",
+      objectives: ["Plant 10,000 native trees in 12 wards", "Establish 5 community nurseries", "Develop maintenance MoUs with RWAs"],
+      proposedTimeline: { start: "Oct 2025", end: "Sep 2026" },
+      proposedImpact: { summary: "Reduce urban heat islands and sequester carbon.", co2ReductionTons: 1200, treesPlanted: 10000, areaRestoredHa: 24 },
+      requirements: ["Municipal permissions", "Water access at sites", "Nursery setup space"],
+      coordinator: { name: "Anita Sharma", contact: "+91-98XXXXXX12" },
+      attachments: [{ name: "Project Proposal.pdf" }]
     },
     {
+      id: "req-marine-cleanup",
       title: "Marine Cleanup Initiative",
       organization: "Ocean Guardians",
-      funding: "₹80L",
       location: "Chennai, TN",
       priority: "Medium",
-      description: "Large-scale marine cleanup initiative targeting plastic pollution in Chennai's coastal waters. The project includes advanced filtration systems, community beach cleanups, and educational programs for local fishing communities. Expected to clean 50 square kilometers of ocean area and remove 500 tons of plastic waste."
+      description: "Large-scale marine cleanup initiative targeting plastic pollution in Chennai's coastal waters. The project includes advanced filtration systems, community beach cleanups, and educational programs for local fishing communities. Expected to clean 50 square kilometers of ocean area and remove 500 tons of plastic waste.",
+      requestedFunding: "₹80L",
+      objectives: ["Deploy 10 floating booms", "Conduct 24 community cleanups", "Set up recycling partnerships"],
+      proposedTimeline: { start: "Sep 2025", end: "Mar 2026" },
+      proposedImpact: { summary: "Reduce marine plastic and improve coastal health.", areaRestoredHa: 5, speciesProtected: 12 },
+      requirements: ["Port permissions", "Waste processing tie-up"],
+      coordinator: { name: "R. Prakash", contact: "+91-97XXXXXX45" }
     },
     {
+      id: "req-solar-pune",
       title: "Solar Panel Installation",
       organization: "Renewable Future",
-      funding: "₹2.7Cr",
       location: "Pune, MH",
       priority: "High",
-      description: "Installation of solar panels across 200 government buildings and schools in Pune district. The project aims to generate 5MW of clean energy, reduce carbon emissions by 3,000 tons annually, and provide energy independence for public institutions. Includes training programs for local technicians."
+      description: "Installation of solar panels across 200 government buildings and schools in Pune district. The project aims to generate 5MW of clean energy, reduce carbon emissions by 3,000 tons annually, and provide energy independence for public institutions. Includes training programs for local technicians.",
+      requestedFunding: "₹2.7Cr",
+      objectives: ["Install 5MW capacity", "Train 60 local technicians"],
+      proposedTimeline: { start: "Aug 2025", end: "Aug 2026" },
+      proposedImpact: { summary: "Clean energy generation and emissions reduction.", co2ReductionTons: 3000 },
+      requirements: ["Building access", "DISCOM approvals"]
     },
     {
+      id: "req-himalayan-glacier",
       title: "Himalayan Glacier Monitoring",
       organization: "Himalayan Ecosystem Studies",
-      funding: "₹3.8Cr",
       location: "Shimla, HP",
       priority: "High",
-      description: "Implementation of advanced remote sensing technology to monitor glacial retreat in the Himalayan region. The project will track 15 major glaciers, analyze meltwater patterns, and develop early warning systems for glacial lake outburst floods (GLOFs). Includes training of local communities and creation of disaster response protocols."
+      description: "Implementation of advanced remote sensing technology to monitor glacial retreat in the Himalayan region. The project will track 15 major glaciers, analyze meltwater patterns, and develop early warning systems for glacial lake outburst floods (GLOFs). Includes training of local communities and creation of disaster response protocols.",
+      requestedFunding: "₹3.8Cr",
+      objectives: ["Deploy 15 sensors", "Create GLOF early warning"],
+      proposedTimeline: { start: "Oct 2025", end: "Dec 2026" },
+      proposedImpact: { summary: "Disaster risk reduction and research." },
+      requirements: ["Permits in protected zones", "Satellite data access"],
+      coordinator: { name: "Dr. L. Negi", contact: "+91-96XXXXXX32" }
     },
     {
+      id: "req-sustainable-fishery",
       title: "Sustainable Fishery Development",
       organization: "Coastal Communities Alliance",
-      funding: "₹1.2Cr",
       location: "Kochi, KL",
       priority: "Medium",
-      description: "Comprehensive program to transform traditional fishing practices into sustainable operations along Kerala's coast. Includes deployment of selective fishing gear, establishment of no-fishing zones, training on sustainable harvesting methods, and direct market linkages to ensure fair prices for fisher communities."
+      description: "Comprehensive program to transform traditional fishing practices into sustainable operations along Kerala's coast. Includes deployment of selective fishing gear, establishment of no-fishing zones, training on sustainable harvesting methods, and direct market linkages to ensure fair prices for fisher communities.",
+      requestedFunding: "₹1.2Cr",
+      objectives: ["Establish 3 no-fishing zones", "Train 500 fishers"],
+      proposedTimeline: { start: "Sep 2025", end: "Sep 2026" },
+      proposedImpact: { summary: "Sustainable fisheries and biodiversity protection.", speciesProtected: 8 },
+      requirements: ["Regulatory approvals", "Community consent"]
     },
     {
+      id: "req-rural-microgrids",
       title: "Rural Solar Microgrids",
       organization: "Energy Access India",
-      funding: "₹4.5Cr",
       location: "Ranchi, JH",
       priority: "High",
-      description: "Development of solar microgrids in 75 off-grid villages in Jharkhand, providing renewable electricity to approximately 15,000 residents. The project includes installation of 3MW decentralized solar capacity, battery storage systems, mini-distribution networks, and training of local technicians for maintenance and operations."
+      description: "Development of solar microgrids in 75 off-grid villages in Jharkhand, providing renewable electricity to approximately 15,000 residents. The project includes installation of 3MW decentralized solar capacity, battery storage systems, mini-distribution networks, and training of local technicians for maintenance and operations.",
+      requestedFunding: "₹4.5Cr",
+      objectives: ["Install 3MW microgrids", "Electrify 75 villages"],
+      proposedTimeline: { start: "Aug 2025", end: "Dec 2026" },
+      proposedImpact: { summary: "Energy access and social upliftment." },
+      requirements: ["Land use permissions", "Battery supply contracts"]
     },
     {
+      id: "req-western-ghats",
       title: "Western Ghats Biodiversity Conservation",
       organization: "Forest Guardians Network",
-      funding: "₹2.2Cr",
       location: "Coimbatore, TN",
       priority: "Medium",
-      description: "Integrated conservation initiative in the Western Ghats focusing on protecting endemic species and their habitats. The project combines scientific research, anti-poaching patrols, habitat restoration, and community-based conservation. Targets protection of 25 endangered species through collaborative efforts with local tribal communities."
+      description: "Integrated conservation initiative in the Western Ghats focusing on protecting endemic species and their habitats. The project combines scientific research, anti-poaching patrols, habitat restoration, and community-based conservation. Targets protection of 25 endangered species through collaborative efforts with local tribal communities.",
+      requestedFunding: "₹2.2Cr",
+      objectives: ["Anti-poaching patrols", "Habitat restoration"],
+      proposedTimeline: { start: "Sep 2025", end: "Sep 2027" },
+      proposedImpact: { summary: "Habitat protection and species conservation.", speciesProtected: 25 },
+      requirements: ["Forest dept coordination"]
     }
   ]
 
@@ -248,7 +296,10 @@ export default function GovernmentDashboard() {
                       <div
                         key={index}
                         className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() => console.log("[v0] Project request clicked:", request.title)}
+                        onClick={() => {
+                          setSelectedRequest(request)
+                          setRequestModalOpen(true)
+                        }}
                       >
                         <div className="flex-1">
                           <h4 className="font-medium text-foreground">{request.title}</h4>
@@ -260,7 +311,7 @@ export default function GovernmentDashboard() {
                             </span>
                             <span className="flex items-center">
                               <DollarSign className="w-3 h-3 mr-1" />
-                              {request.funding}
+                              {request.requestedFunding}
                             </span>
                           </div>
                         </div>
@@ -268,7 +319,14 @@ export default function GovernmentDashboard() {
                           <Badge variant={request.priority === "High" ? "destructive" : "secondary"}>
                             {request.priority}
                           </Badge>
-                          <AIAnalysisModal projectData={request}>
+                          <AIAnalysisModal projectData={{
+                            title: request.title,
+                            organization: request.organization,
+                            funding: request.requestedFunding,
+                            location: request.location,
+                            priority: request.priority,
+                            description: request.description,
+                          }}>
                             <Button
                               variant="outline"
                               size="sm"
@@ -281,6 +339,17 @@ export default function GovernmentDashboard() {
                               AI Analyse
                             </Button>
                           </AIAnalysisModal>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedRequest(request)
+                              setRequestModalOpen(true)
+                            }}
+                          >
+                            View Details
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -373,7 +442,10 @@ export default function GovernmentDashboard() {
                   <div
                     key={index}
                     className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => console.log("[v0] Project request clicked:", request.title)}
+                    onClick={() => {
+                      setSelectedRequest(request)
+                      setRequestModalOpen(true)
+                    }}
                   >
                     <div className="flex-1">
                       <h4 className="font-medium text-foreground">{request.title}</h4>
@@ -385,7 +457,7 @@ export default function GovernmentDashboard() {
                         </span>
                         <span className="flex items-center">
                           <DollarSign className="w-3 h-3 mr-1" />
-                          {request.funding}
+                          {request.requestedFunding}
                         </span>
                       </div>
                     </div>
@@ -393,7 +465,14 @@ export default function GovernmentDashboard() {
                       <Badge variant={request.priority === "High" ? "destructive" : "secondary"}>
                         {request.priority}
                       </Badge>
-                      <AIAnalysisModal projectData={request}>
+                      <AIAnalysisModal projectData={{
+                        title: request.title,
+                        organization: request.organization,
+                        funding: request.requestedFunding,
+                        location: request.location,
+                        priority: request.priority,
+                        description: request.description,
+                      }}>
                         <Button
                           variant="outline"
                           size="sm"
@@ -406,6 +485,17 @@ export default function GovernmentDashboard() {
                           AI Analyse
                         </Button>
                       </AIAnalysisModal>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedRequest(request)
+                          setRequestModalOpen(true)
+                        }}
+                      >
+                        View Details
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -458,7 +548,7 @@ export default function GovernmentDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {[
+                {[ 
                   {
                     title: "National Solar Mission Phase III",
                     progress: 72,
@@ -509,7 +599,29 @@ export default function GovernmentDashboard() {
                     status: "Delayed",
                   }
                 ].map((project, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
+                  <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50"
+                    onClick={() => {
+                      const detail: GovOngoingDetail = {
+                        id: `ongoing-${index}`,
+                        title: project.title,
+                        funding: project.funding,
+                        status: project.status as GovOngoingDetail["status"],
+                        progress: project.progress,
+                        deadline: project.deadline,
+                        workstreams: [
+                          { name: "Procurement", progress: Math.min(100, project.progress + 5) },
+                          { name: "Implementation", progress: project.progress },
+                          { name: "Community Outreach", progress: Math.max(0, project.progress - 10) },
+                        ],
+                        issues: project.status === "Delayed" ? [
+                          { date: "Aug 2025", title: "Monsoon delays", severity: "medium", notes: "Site access constraints" }
+                        ] : [],
+                        team: [ { role: "PM", name: "Project Office" }, { role: "Field Lead", name: "Ops Team" } ]
+                      }
+                      setSelectedOngoing(detail)
+                      setOngoingModalOpen(true)
+                    }}
+                  >
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-medium text-foreground">{project.title}</h4>
@@ -557,7 +669,7 @@ export default function GovernmentDashboard() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[
+                {[ 
                   {
                     title: "Rewa Ultra Mega Solar Project",
                     impact: "1.8 million tons CO₂ saved annually",
@@ -595,7 +707,25 @@ export default function GovernmentDashboard() {
                     completion: "Feb 2025",
                   }
                 ].map((project, index) => (
-                  <div key={index} className="p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                  <div key={index} className="p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                    onClick={() => {
+                      const detail: GovCompletedDetail = {
+                        id: `completed-${index}`,
+                        title: project.title,
+                        completionDate: project.completion,
+                        funding: project.funding,
+                        impactSummary: project.impact,
+                        outcomes: [
+                          { label: "Primary Impact", value: project.impact },
+                          { label: "Budget Utilization", value: "98%" },
+                        ],
+                        metrics: project.title.includes("Solar") ? { co2ReductionTons: 1800000 } : undefined,
+                        lessons: ["Ensure early stakeholder alignment", "Buffer time for seasonal delays"]
+                      }
+                      setSelectedCompleted(detail)
+                      setCompletedModalOpen(true)
+                    }}
+                  >
                     <div className="w-full h-24 bg-gradient-to-br from-emerald-100 to-cyan-100 rounded-lg mb-3 flex items-center justify-center">
                       <CheckCircle className="w-8 h-8 text-emerald-600" />
                     </div>
@@ -604,6 +734,32 @@ export default function GovernmentDashboard() {
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>{project.funding}</span>
                       <Badge variant="outline">{project.completion}</Badge>
+                    </div>
+                    <div className="mt-2 flex justify-end">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const detail: GovCompletedDetail = {
+                            id: `completed-${index}`,
+                            title: project.title,
+                            completionDate: project.completion,
+                            funding: project.funding,
+                            impactSummary: project.impact,
+                            outcomes: [
+                              { label: "Primary Impact", value: project.impact },
+                              { label: "Budget Utilization", value: "98%" },
+                            ],
+                            metrics: project.title.includes("Solar") ? { co2ReductionTons: 1800000 } : undefined,
+                            lessons: ["Ensure early stakeholder alignment", "Buffer time for seasonal delays"]
+                          }
+                          setSelectedCompleted(detail)
+                          setCompletedModalOpen(true)
+                        }}
+                      >
+                        View Details
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -804,6 +960,40 @@ export default function GovernmentDashboard() {
 
         <main className="flex-1 p-6 space-y-6">{renderActiveSection()}</main>
       </div>
+
+      {/* Detail Modals */}
+      <GovRequestDetailsModal
+        request={selectedRequest}
+        open={requestModalOpen && selectedRequest !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRequestModalOpen(false)
+            setSelectedRequest(null)
+          }
+        }}
+      />
+
+      <GovOngoingDetailsModal
+        project={selectedOngoing}
+        open={ongoingModalOpen && selectedOngoing !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setOngoingModalOpen(false)
+            setSelectedOngoing(null)
+          }
+        }}
+      />
+
+      <GovCompletedDetailsModal
+        project={selectedCompleted}
+        open={completedModalOpen && selectedCompleted !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCompletedModalOpen(false)
+            setSelectedCompleted(null)
+          }
+        }}
+      />
     </div>
   )
 }

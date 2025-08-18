@@ -45,6 +45,11 @@ import { useAuth } from "@/components/auth-provider"
 import { useUserProgress } from "@/hooks/use-user-progress"
 import { formatDistanceToNow } from "date-fns"
 import EnvironmentalJourney from "@/components/environmental-journey"
+import { JoinProjectsModal } from "@/components/join-projects-modal"
+import { PDFInfoModal } from "@/components/pdf-info-modal"
+import { ProjectDetailsModal } from "@/components/project-details-modal"
+import { useToast } from "@/hooks/use-toast"
+import { Clock } from "lucide-react"
 
 const languageOptions = [
   { code: "en", name: "English", nativeName: "English" },
@@ -64,6 +69,10 @@ export default function UserDashboard() {
   const [activeSection, setActiveSection] = useState("dashboard")
   const [educationSubsection, setEducationSubsection] = useState("videos")
   const [quizModalOpen, setQuizModalOpen] = useState(false)
+  const [pdfModalOpen, setPdfModalOpen] = useState(false)
+  const [projectModalOpen, setProjectModalOpen] = useState(false)
+  const [selectedPdf, setSelectedPdf] = useState<any>(null)
+  const [selectedProject, setSelectedProject] = useState<any>(null)
   const [quizMaterial, setQuizMaterial] = useState<{
     title: string;
     type: string;
@@ -72,6 +81,7 @@ export default function UserDashboard() {
   } | null>(null)
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const {
     addUserXP,
     markItemAsComplete,
@@ -91,6 +101,184 @@ export default function UserDashboard() {
   const [showXP, setShowXP] = useState(false);
   const [earnedXP, setEarnedXP] = useState(0);
   const [showIssueXP, setShowIssueXP] = useState(false);
+  
+  // Sample project data
+  const [availableProjects, setAvailableProjects] = useState([
+    {
+      id: "proj-001",
+      title: "Urban Reforestation Initiative",
+      organization: "Green Earth Foundation",
+      location: "City Central Park",
+      startDate: "2023-11-15",
+      endDate: "2024-05-15",
+      participants: 28,
+      maxParticipants: 50,
+      progress: 45,
+      status: "active" as "active",
+      impact: "High",
+      xp: "30 XP",
+      description: "Help restore the city's green cover by planting native tree species in designated urban areas. This project aims to combat air pollution and increase biodiversity in our concrete jungle.",
+      environmentalImpact: {
+        type: "Urban reforestation to improve air quality and enhance biodiversity",
+        metrics: {
+          treesPlanted: 450,
+          co2Reduction: 15,
+          areaRestored: 2.5
+        }
+      },
+      goals: [
+        "Plant 1,000 native trees across 5 city locations",
+        "Establish 3 community-managed green zones",
+        "Reduce local air pollution by 15%",
+        "Create habitat for native bird species"
+      ],
+      requirements: [
+        "Ability to participate in at least 3 planting sessions",
+        "Basic understanding of plant care",
+        "Willingness to work outdoors in various weather conditions"
+      ],
+      updates: [
+        {
+          date: "2023-12-10",
+          content: "Successfully completed the first phase with 200 trees planted in the North District. Great turnout from community volunteers!"
+        },
+        {
+          date: "2024-01-15",
+          content: "Environmental impact assessment shows 5% improvement in local air quality around planted areas."
+        }
+      ],
+      coordinator: {
+        name: "Dr. Emily Chen",
+        contact: "emily.chen@greenearthfoundation.org"
+      },
+      funding: {
+        source: "City Environmental Grant Program",
+        amount: "₹15,00,000"
+      },
+      partners: ["City Parks Department", "Local University", "Neighborhood Association"]
+    },
+    {
+      id: "proj-002",
+      title: "Coastal Cleanup Campaign",
+      organization: "Ocean Guardians",
+      location: "Beach Sector 3",
+      startDate: "2024-01-10",
+      endDate: "2024-04-10",
+      participants: 42,
+      maxParticipants: 75,
+      progress: 65,
+      status: "active" as "active",
+      impact: "Medium",
+      xp: "25 XP",
+      description: "Join our efforts to clean up plastic and other waste from our coastal areas. This ongoing campaign focuses on weekend cleanup events and educating beachgoers about plastic pollution.",
+      environmentalImpact: {
+        type: "Marine habitat protection and plastic pollution reduction",
+        metrics: {
+          wasteRecycled: 870,
+          areaRestored: 4.2,
+          speciesProtected: 12
+        }
+      },
+      goals: [
+        "Remove 2 tons of plastic waste from coastal areas",
+        "Recycle at least 50% of collected waste",
+        "Install 15 educational signboards along the beach",
+        "Reduce plastic pollution on target beaches by 40%"
+      ],
+      requirements: [
+        "Commitment to at least 2 cleanup events",
+        "Ability to work in sandy and sometimes wet conditions",
+        "Basic understanding of waste segregation"
+      ],
+      updates: [
+        {
+          date: "2024-01-25",
+          content: "First month completed with over 500kg of waste collected. Great progress on the southern sector!"
+        },
+        {
+          date: "2024-02-20",
+          content: "Local marine wildlife showing signs of returning to cleaned areas. Sea turtle nesting increased by 15%."
+        }
+      ],
+      coordinator: {
+        name: "Raj Sharma",
+        contact: "raj@oceanguardians.org"
+      },
+      partners: ["Marine Conservation Institute", "Local Fishermen's Association", "Tourism Board"]
+    },
+    {
+      id: "proj-003",
+      title: "Solar Energy Awareness",
+      organization: "Renewable Future",
+      location: "Multiple Locations",
+      startDate: "2023-12-01",
+      endDate: "2024-06-01",
+      participants: 15,
+      maxParticipants: 30,
+      progress: 35,
+      status: "active" as "active",
+      impact: "Medium",
+      xp: "20 XP",
+      description: "Help promote solar energy adoption through community workshops and demonstrations. Volunteers will assist in organizing events, creating educational materials, and conducting home solar potential assessments.",
+      environmentalImpact: {
+        type: "Renewable energy promotion and carbon footprint reduction",
+        metrics: {
+          co2Reduction: 22
+        }
+      },
+      goals: [
+        "Conduct 20 community workshops about solar energy",
+        "Help 50 households assess their solar potential",
+        "Facilitate solar installation for at least 15 households",
+        "Reduce community carbon footprint by estimated 25 tons annually"
+      ],
+      requirements: [
+        "Basic understanding of renewable energy concepts",
+        "Good communication skills for community engagement",
+        "Ability to assist with technical demonstrations",
+        "Commitment to at least 5 hours per week"
+      ],
+      updates: [
+        {
+          date: "2023-12-20",
+          content: "First 5 workshops completed with over 120 participants. Great interest in home solar assessments."
+        },
+        {
+          date: "2024-02-05",
+          content: "First 10 households have committed to solar installation. Partnership with solar provider secured for discounted rates."
+        }
+      ],
+      coordinator: {
+        name: "Priya Nair",
+        contact: "priya@renewablefuture.org"
+      },
+      funding: {
+        source: "Energy Innovation Grant",
+        amount: "₹10,00,000"
+      },
+      partners: ["State Energy Department", "Solar Solutions Inc.", "Local Community College"]
+    }
+  ]);
+  
+  // Sample joined projects
+  const [joinedProjects, setJoinedProjects] = useState([
+    {
+      id: "proj-001",
+      title: "Urban Reforestation Initiative",
+      organization: "Green Earth Foundation",
+      status: "active" as "active",
+      progress: 45,
+      participants: 28,
+      maxParticipants: 50,
+      daysLeft: 120,
+      xpEarned: 15,
+      totalXp: 30,
+      xp: "30 XP",
+      endDate: "2024-05-15"
+    }
+  ]);
+  
+  const [joinedProjectIds, setJoinedProjectIds] = useState(new Set(["proj-001"]));
   
   // Get the current language object
   const currentLanguage = languageOptions.find(l => l.code === language) || languageOptions[0]
@@ -129,9 +317,8 @@ export default function UserDashboard() {
     );
   }
 
-  // Add functions for quiz interactions
-  const handleEducationClick = (item: { id: string; type: string; title: string; description?: string }) => {
-    if (item.type === 'video' || item.type === 'pdf') {
+  const handleEducationClick = (item: { id: string; type: string; title: string; description?: string; filename?: string; authors?: string[] | string; journal?: string; publicationDate?: string; abstract?: string; topics?: string[]; pageCount?: number; keywords?: string[]; citation?: string; doi?: string }) => {
+    if (item.type === 'video') {
       setQuizMaterial({
         id: item.id,
         type: item.type,
@@ -139,6 +326,38 @@ export default function UserDashboard() {
         description: item.description
       });
       setQuizModalOpen(true);
+    } else if (item.type === 'pdf' && item.filename) {
+      // Process authors properly whether they're a string or array
+      let authorArray: string[] = [];
+      
+      if (Array.isArray(item.authors)) {
+        authorArray = item.authors;
+      } else if (typeof item.authors === 'string') {
+        // If it's a string, split by comma or just use the whole string
+        authorArray = item.authors.includes(',') ? item.authors.split(',').map(a => a.trim()) : [item.authors];
+      } else {
+        authorArray = ["Unknown Author"];
+      }
+      
+      // Get publication date/year (handle both formats)
+      const pubDate = item.publicationDate || item.publicationYear || "2023";
+      
+      // Set selected PDF for modal
+      setSelectedPdf({
+        id: item.id,
+        title: item.title,
+        authors: authorArray,
+        journal: item.journal || "Environmental Journal",
+        publicationDate: pubDate,
+        abstract: item.abstract || "This research paper explores environmental conservation strategies.",
+        topics: item.topics || ["Environment", "Conservation"],
+        fileName: item.filename,
+        pageCount: item.pageCount || 10,
+        keywords: item.keywords || ["environment", "research", "sustainability"],
+        citation: item.citation || `${authorArray.join(", ")} (${pubDate}). ${item.title}. ${item.journal || "Environmental Journal"}.`,
+        doi: item.doi
+      });
+      setPdfModalOpen(true);
     }
   };
 
@@ -706,59 +925,73 @@ export default function UserDashboard() {
                   variant="outline"
                   size="sm"
                   className="bg-transparent"
-                  onClick={() => console.log("[v0] Join More clicked")}
+                  onClick={() => setProjectModalOpen(true)}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   {t.joinMore}
                 </Button>
               </CardHeader>
               <CardContent>
-                {/* ... existing active projects content ... */}
                 <div className="space-y-4">
-                  {[
-                    {
-                      title: language === "en" ? "Community Garden Project" : "सामुदायिक बगीचा परियोजना",
-                      progress: 75,
-                      participants: 24,
-                      deadline: language === "en" ? "2 weeks left" : "2 सप्ताह बचे",
-                      impact: "+15 XP",
-                    },
-                    {
-                      title: language === "en" ? "Beach Cleanup Initiative" : "समुद्री तट सफाई पहल",
-                      progress: 45,
-                      participants: 18,
-                      deadline: language === "en" ? "1 month left" : "1 महीना बचा",
-                      impact: "+25 XP",
-                    },
-                    {
-                      title: language === "en" ? "Solar Panel Installation" : "सोलर पैनल स्थापना",
-                      progress: 90,
-                      participants: 12,
-                      deadline: language === "en" ? "3 days left" : "3 दिन बचे",
-                      impact: "+40 XP",
-                    },
-                  ].map((project, index) => (
+                  {joinedProjects.map((project, index) => (
                     <div
-                      key={index}
-                      className="p-4 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors cursor-pointer"
+                      key={project.id}
+                      className="p-4 rounded-lg border border-emerald-200 bg-emerald-50/50"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-medium text-foreground">{project.title}</h4>
-                        <Badge className="bg-emerald-100 text-emerald-700">{project.impact}</Badge>
+                        <Badge className="bg-emerald-100 text-emerald-700">{project.xp}</Badge>
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-emerald-600 mb-3">
-                        <span className="flex items-center gap-1">
-                          <Users className="w-3 h-3" />
-                          {project.participants} {t.participants}
+                      <p className="text-sm text-muted-foreground mb-3">
+                        <span className="font-medium">{project.organization}</span>
+                      </p>
+                      
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="rounded-md bg-emerald-50 border border-emerald-100 p-2 text-center">
+                          <div className="text-xs text-muted-foreground mb-1">Progress</div>
+                          <div className="font-medium text-emerald-700">{project.progress}%</div>
+                        </div>
+                        <div className="rounded-md bg-blue-50 border border-blue-100 p-2 text-center">
+                          <div className="text-xs text-muted-foreground mb-1">XP Earned</div>
+                          <div className="font-medium text-blue-700">{project.xpEarned}/{project.totalXp}</div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-sm mb-3">
+                        <span className="flex items-center text-emerald-700 gap-1">
+                          <Users className="h-3.5 w-3.5" />
+                          {project.participants}/{project.maxParticipants} {t.participants}
                         </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {project.deadline}
+                        <span className="flex items-center text-amber-700 gap-1">
+                          <Clock className="h-3.5 w-3.5" />
+                          {project.daysLeft} {t.timeLeft}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <Progress value={project.progress} className="flex-1 h-2" />
-                        <span className="text-sm font-medium">{project.progress}%</span>
+                      
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span>{project.status === "active" ? "In progress" : project.status}</span>
+                          <span>{project.progress}%</span>
+                        </div>
+                        <Progress value={project.progress} className="h-2" />
+                      </div>
+                      
+                      <div className="mt-3 flex justify-end">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Find the full project data in availableProjects
+                            const fullProjectData = availableProjects.find(p => p.id === project.id);
+                            if (fullProjectData) {
+                              setSelectedProject(fullProjectData);
+                              setProjectModalOpen(true);
+                            }
+                          }}
+                        >
+                          View Details
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -1008,6 +1241,14 @@ export default function UserDashboard() {
                           description: "Comprehensive research on ocean protection methods",
                           pages: "15 pages",
                           xp: "+15 XP",
+                          authors: ["James R. Wilson", "Matthew S. Booker"],
+                          journal: "Marine Policy",
+                          publicationDate: "2014",
+                          abstract: "This paper examines marine conservation practices in protected areas, analyzing the effectiveness of current strategies and proposing innovative approaches for sustainable resource management.",
+                          topics: ["Marine Conservation", "Resource Management"],
+                          pageCount: 15,
+                          keywords: ["ocean", "conservation", "sustainable practices", "marine policy"],
+                          citation: "Wilson, J.R., & Booker, M.S. (2014). Marine Conservation Strategies. Marine Policy, 45, 296-308."
                         },
                         {
                           id: "pdf-2", 
@@ -1017,6 +1258,14 @@ export default function UserDashboard() {
                           description: "Analysis of environmental sustainability targets",
                           pages: "22 pages",
                           xp: "+20 XP",
+                          authors: ["Eliza Chen", "Omar Al-Farsi"],
+                          journal: "Ocean & Coastal Management",
+                          publicationDate: "2023",
+                          abstract: "This research evaluates progress toward the UN's Sustainable Development Goals related to marine ecosystems, highlighting challenges and opportunities in implementation across different regions.",
+                          topics: ["Sustainable Development", "Policy", "Marine Ecosystems"],
+                          pageCount: 22,
+                          keywords: ["SDGs", "sustainability", "environmental policy", "marine conservation"],
+                          citation: "Chen, E., & Al-Farsi, O. (2023). Sustainable Development Goals. Ocean & Coastal Management, 107, 123-145."
                         },
                         {
                           id: "pdf-3",
@@ -1026,6 +1275,14 @@ export default function UserDashboard() {
                           description: "Business strategies for climate adaptation",
                           pages: "18 pages", 
                           xp: "+18 XP",
+                          authors: ["Sarah Delgado", "Raj Patel"],
+                          journal: "Business Strategy and the Environment",
+                          publicationDate: "2021",
+                          abstract: "An examination of how businesses are responding to climate challenges through adaptation strategies, risk assessments, and innovative operational changes to reduce environmental impact.",
+                          topics: ["Climate Change", "Business Strategy", "Adaptation"],
+                          pageCount: 18,
+                          keywords: ["climate change", "business strategy", "adaptation", "risk assessment"],
+                          citation: "Delgado, S., & Patel, R. (2021). Climate Change Impact Assessment. Business Strategy and the Environment, 30(4), 1859-1878."
                         },
                         {
                           id: "pdf-4",
@@ -1035,6 +1292,10 @@ export default function UserDashboard() {
                           description: "Framework for environmental management",
                           pages: "12 pages",
                           xp: "+12 XP",
+                          authors: "Thomas Lee, Chang Wu",
+                          journal: "Journal of Environmental Management",
+                          publicationYear: "2005",
+                          abstract: "This paper presents a comprehensive framework for implementing environmental management systems in organizations, with case studies demonstrating successful approaches across industries."
                         },
                         {
                           id: "pdf-5",
@@ -1044,6 +1305,10 @@ export default function UserDashboard() {
                           description: "Modern approaches to biodiversity conservation",
                           pages: "25 pages",
                           xp: "+25 XP",
+                          authors: "Maria Gonzalez, Peter Svenson",
+                          journal: "Conservation Biology",
+                          publicationYear: "2019",
+                          abstract: "A review of contemporary conservation biology principles with emphasis on integrating traditional ecological knowledge with modern scientific approaches to protect biodiversity."
                         },
                         {
                           id: "pdf-6",
@@ -1053,6 +1318,49 @@ export default function UserDashboard() {
                           description: "Frontiers in marine science research",
                           pages: "20 pages",
                           xp: "+20 XP",
+                          authors: "Alisha Patel, Richard Thompson",
+                          journal: "Frontiers in Marine Science",
+                          publicationYear: "2020",
+                          abstract: "This research explores sustainable approaches to marine resource management, examining stakeholder collaboration, ecosystem-based management, and innovative conservation technologies."
+                        },
+                        {
+                          id: "pdf-7",
+                          type: "pdf",
+                          title: "Collaborating for Marine Conservation",
+                          filename: "Workshop-Report-Collaborating-for-Marine-Conservation-and-Resource-Management-in-the-Andaman-and-Nicoba.pdf",
+                          description: "Workshop report on collaborative conservation efforts",
+                          pages: "32 pages",
+                          xp: "+30 XP",
+                          authors: "Andaman Conservation Initiative",
+                          journal: "Workshop Report",
+                          publicationYear: "2022",
+                          abstract: "Outcomes from a multi-stakeholder workshop addressing marine conservation challenges in the Andaman and Nicobar Islands, with emphasis on local community involvement and traditional ecological knowledge."
+                        },
+                        {
+                          id: "pdf-8",
+                          type: "pdf",
+                          title: "Sustainability Best Practices",
+                          filename: "sustainability-17-06371.pdf",
+                          description: "Framework for environmental sustainability implementation",
+                          pages: "28 pages",
+                          xp: "+25 XP",
+                          authors: "Julia Martinez, David Wong",
+                          journal: "Sustainability",
+                          publicationYear: "2023",
+                          abstract: "A comprehensive analysis of best practices for implementing environmental sustainability measures across various sectors, with metrics for measuring progress and impact."
+                        },
+                        {
+                          id: "pdf-9",
+                          type: "pdf",
+                          title: "Science Advances in Conservation",
+                          filename: "sciadv.aay9969.pdf",
+                          description: "Latest scientific advances in conservation biology",
+                          pages: "18 pages",
+                          xp: "+20 XP",
+                          authors: "Emily Johnson, Hiroshi Tanaka",
+                          journal: "Science Advances",
+                          publicationYear: "2021",
+                          abstract: "This paper presents groundbreaking research in conservation biology, highlighting technological innovations and methodological advances that are transforming the field."
                         },
                       ].map((item) => (
                         <div
@@ -1069,6 +1377,11 @@ export default function UserDashboard() {
                             onClick={() => handleEducationClick(item)}
                           >
                             <BookOpen className="w-8 h-8 text-green-600" />
+                            <div className="absolute bottom-2 right-2">
+                              <Badge className="bg-blue-100 text-blue-700 text-xs">
+                                {item.publicationYear || "PDF"}
+                              </Badge>
+                            </div>
                           </div>
                           <h4 className="font-medium text-foreground mb-1 group-hover:text-emerald-600 transition-colors">
                             {item.title}
@@ -1134,6 +1447,88 @@ export default function UserDashboard() {
         materialId={quizMaterial?.id || ''}
         materialDescription={quizMaterial?.description}
         onQuizComplete={handleQuizComplete}
+      />
+      
+      {/* PDF Info Modal */}
+      <PDFInfoModal 
+        pdf={selectedPdf}
+        open={pdfModalOpen}
+        onOpenChange={setPdfModalOpen}
+        onStartQuiz={() => {
+          if (selectedPdf) {
+            setQuizMaterial({
+              id: selectedPdf.id,
+              type: 'quiz',
+              title: selectedPdf.title,
+              description: `Quiz on "${selectedPdf.title}"`
+            });
+            setQuizModalOpen(true);
+          }
+        }}
+      />
+
+      {/* Join Projects Modal */}
+      {/* Join Projects Modal - Only for browsing and joining new projects */}
+      <JoinProjectsModal
+        open={projectModalOpen && selectedProject === null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setProjectModalOpen(false);
+          }
+        }}
+        availableProjects={availableProjects}
+        joinedProjectIds={Array.from(joinedProjectIds)}
+        onJoinProject={(projectId) => {
+          // Logic to join a project
+          console.log(`Joining project with ID: ${projectId}`);
+          
+          // Find the project in availableProjects
+          const projectToJoin = availableProjects.find(p => p.id === projectId);
+          
+          if (projectToJoin) {
+            // Add to joined projects
+            const newJoinedProject = {
+              id: projectToJoin.id,
+              title: projectToJoin.title,
+              organization: projectToJoin.organization,
+              status: projectToJoin.status,
+              progress: projectToJoin.progress,
+              participants: projectToJoin.participants,
+              maxParticipants: projectToJoin.maxParticipants,
+              daysLeft: 120, // Calculate actual days remaining
+              xpEarned: 0,
+              totalXp: parseInt(projectToJoin.xp.replace(' XP', '')),
+              xp: projectToJoin.xp,
+              endDate: projectToJoin.endDate
+            };
+            
+            setJoinedProjects([...joinedProjects, newJoinedProject]);
+            
+            // Update joined project IDs
+            const updatedJoinedIds = new Set(joinedProjectIds);
+            updatedJoinedIds.add(projectId);
+            setJoinedProjectIds(updatedJoinedIds);
+            
+            // Show success toast
+            toast({
+              title: "Project Joined",
+              description: `You've successfully joined "${projectToJoin.title}"`,
+              variant: "success" as any
+            });
+          }
+        }}
+      />
+
+      {/* Project Details Modal - For viewing details of projects user is already part of */}
+      <ProjectDetailsModal
+        project={selectedProject}
+        open={projectModalOpen && selectedProject !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setProjectModalOpen(false);
+            setSelectedProject(null);
+          }
+        }}
       />
     </div>
   )

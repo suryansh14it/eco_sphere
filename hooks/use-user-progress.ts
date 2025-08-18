@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/auth-provider';
 import { toast } from '@/hooks/use-toast';
 
@@ -39,9 +39,44 @@ interface ActivityDetails {
 export function useUserProgress() {
   const { user: authUser, refreshUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [dashboardData, setDashboardData] = useState<{
+    totalXp: number;
+    level: number;
+    xpForNextLevel: number;
+    xpToNextLevel: number;
+    environmentalImpact: { treesPlanted: number; co2Offset: number; waterSaved: number };
+    recentActivity: any[];
+  } | null>(null);
   
   // Cast user to our extended type
   const user = authUser as unknown as UserWithProgress | null;
+
+  // Fetch minimal dashboard progress from backend route
+  const refreshProgress = async () => {
+    if (!authUser) return;
+    try {
+      const res = await fetch('/api/user/dashboard-data', { credentials: 'include' });
+      if (!res.ok) {
+        setDashboardData(null);
+        return;
+      }
+      const json = await res.json();
+      if (json?.success) {
+        setDashboardData(json.data);
+      } else {
+        setDashboardData(null);
+      }
+    } catch (e) {
+      console.error('Failed to fetch dashboard-data:', e);
+      setDashboardData(null);
+    }
+  };
+
+  // Load progress on first use and when auth user changes
+  useEffect(() => {
+    refreshProgress();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser?.id]);
 
   // Add XP and record activity
   const addUserXP = async (
@@ -68,8 +103,9 @@ export function useUserProgress() {
       const data = await response.json();
       
       if (data.success) {
-        // Refresh user data to get the latest state
+        // Refresh user and progress data to get the latest state
         await refreshUser();
+        await refreshProgress();
         
           toast({
             title: `+${amount} XP Earned!`,
@@ -130,8 +166,9 @@ export function useUserProgress() {
       const data = await response.json();
       
       if (data.success) {
-        // Refresh user data to get the latest state
+        // Refresh user and progress data to get the latest state
         await refreshUser();
+        await refreshProgress();
         
         if (data.isNewCompletion) {
           toast({
@@ -179,27 +216,19 @@ export function useUserProgress() {
   
   // Calculate XP needed for the next level
   const calculateXpForNextLevel = (): { current: number, needed: number, percentage: number } => {
-    if (!user) return { current: 0, needed: 100, percentage: 0 };
-    
-    const currentLevel = user.level || 1;
-    const currentXP = user.xpPoints || 0;
-    
-    // Calculate XP needed for the current level
-    const xpNeededForCurrentLevel = Math.pow(currentLevel - 1, 2) * 10;
-    
-    // Calculate XP needed for the next level
-    const xpNeededForNextLevel = Math.pow(currentLevel, 2) * 10;
-    
-    // Calculate progress
-    const xpProgress = currentXP - xpNeededForCurrentLevel;
-    const xpNeeded = xpNeededForNextLevel - xpNeededForCurrentLevel;
-    const percentage = Math.min(100, Math.floor((xpProgress / xpNeeded) * 100));
-    
-    return {
-      current: xpProgress,
-      needed: xpNeeded,
-      percentage
-    };
+  const level = dashboardData?.level ?? user?.level;
+  const totalXp = dashboardData?.totalXp ?? user?.xpPoints;
+  if (!level || totalXp === undefined) return { current: 0, needed: 100, percentage: 0 };
+
+  // Lower bound XP for current level and threshold for next level
+  const lowerBound = Math.pow(level - 1, 2) * 10;
+  const nextThreshold = dashboardData?.xpForNextLevel ?? Math.pow(level, 2) * 10;
+
+  const xpProgress = Math.max(0, totalXp - lowerBound);
+  const xpNeeded = Math.max(1, nextThreshold - lowerBound);
+  const percentage = Math.min(100, Math.floor((xpProgress / xpNeeded) * 100));
+
+  return { current: xpProgress, needed: xpNeeded, percentage };
   };
 
   return {
@@ -208,10 +237,10 @@ export function useUserProgress() {
     isItemCompleted,
     calculateXpForNextLevel,
     isLoading,
-    userXp: user?.xpPoints || 0,
-    userLevel: user?.level || 1,
-    userImpact: user?.environmentalImpact || { treesPlanted: 0, co2Offset: 0, waterSaved: 0 },
-    activityHistory: user?.activityHistory || [],
+  userXp: dashboardData?.totalXp ?? user?.xpPoints ?? 0,
+  userLevel: dashboardData?.level ?? user?.level ?? 1,
+  userImpact: dashboardData?.environmentalImpact ?? user?.environmentalImpact ?? { treesPlanted: 0, co2Offset: 0, waterSaved: 0 },
+  activityHistory: dashboardData?.recentActivity ?? user?.activityHistory ?? [],
     completedItems: user?.completedItems || []
   };
 }
