@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Create response
-    const response = NextResponse.json(
+  const response = NextResponse.json(
       {
         message: 'Login successful',
         user: {
@@ -38,7 +38,10 @@ export async function POST(request: NextRequest) {
           email: user.email,
           name: user.name,
           role: user.role,
-          isVerified: user.isVerified
+      isVerified: user.isVerified,
+      // include progression so client has correct values immediately
+      xpPoints: user.xpPoints || 0,
+      level: user.level || 1
         },
         redirectTo: `/${user.role}` // Add redirect info
       },

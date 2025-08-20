@@ -450,7 +450,7 @@ export default function QuizModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto w-[90vw] p-8">
         <DialogHeader>
           <DialogTitle>
             <div className="flex items-center gap-2">

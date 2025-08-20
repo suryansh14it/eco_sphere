@@ -131,7 +131,7 @@ export function JoinProjectsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-  <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-hidden flex flex-col">
+  <DialogContent className="sm:max-w-7xl max-h-[90vh] overflow-hidden flex flex-col w-[95vw] p-8">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Leaf className="h-5 w-5 text-emerald-600" />

@@ -48,6 +48,7 @@ import EnvironmentalJourney from "@/components/environmental-journey"
 import { JoinProjectsModal } from "@/components/join-projects-modal"
 import { PDFInfoModal } from "@/components/pdf-info-modal"
 import { ProjectDetailsModal } from "@/components/project-details-modal"
+import { UserAttendanceModal } from "@/components/user-attendance-modal"
 import { useToast } from "@/hooks/use-toast"
 import { Clock } from "lucide-react"
 
@@ -71,6 +72,10 @@ export default function UserDashboard() {
   const [quizModalOpen, setQuizModalOpen] = useState(false)
   const [pdfModalOpen, setPdfModalOpen] = useState(false)
   const [projectModalOpen, setProjectModalOpen] = useState(false)
+  const [attendanceModalOpen, setAttendanceModalOpen] = useState(false)
+  const [selectedProjectForAttendance, setSelectedProjectForAttendance] = useState<any>(null)
+  const [attendanceType, setAttendanceType] = useState<'checkin' | 'checkout'>('checkin')
+  const [checkedInProjects, setCheckedInProjects] = useState<Set<string>>(new Set())
   const [selectedPdf, setSelectedPdf] = useState<any>(null)
   const [selectedProject, setSelectedProject] = useState<any>(null)
   const [quizMaterial, setQuizMaterial] = useState<{
@@ -89,6 +94,7 @@ export default function UserDashboard() {
     calculateXpForNextLevel,
     userXp,
     userLevel,
+  xpForNextLevel,
     userImpact,
     activityHistory,
     completedItems: completedItemsArray,
@@ -106,88 +112,92 @@ export default function UserDashboard() {
   const [availableProjects, setAvailableProjects] = useState([
     {
       id: "proj-001",
-      title: "Urban Reforestation Initiative",
-      organization: "Green Earth Foundation",
-      location: "City Central Park",
-      startDate: "2023-11-15",
-      endDate: "2024-05-15",
-      participants: 28,
-      maxParticipants: 50,
-      progress: 45,
+      title: "Mumbai Urban Tree Plantation Drive",
+      organization: "Green Mumbai Foundation",
+      location: "Andheri West, Mumbai, Maharashtra",
+      coordinates: {
+        latitude: 19.1197,
+        longitude: 72.8468
+      },
+      startDate: "2025-09-01",
+      endDate: "2026-03-01",
+      participants: 120,
+      maxParticipants: 200,
+      progress: 60,
       status: "active" as "active",
       impact: "High",
-      xp: "30 XP",
-      description: "Help restore the city's green cover by planting native tree species in designated urban areas. This project aims to combat air pollution and increase biodiversity in our concrete jungle.",
+      xp: "40 XP",
+      description: "Join the largest urban tree plantation drive in Mumbai! Help plant 5,000 native trees to improve air quality and urban biodiversity. Supported by BMC and local schools.",
       environmentalImpact: {
-        type: "Urban reforestation to improve air quality and enhance biodiversity",
+        type: "Urban reforestation to improve air quality and biodiversity",
         metrics: {
-          treesPlanted: 450,
-          co2Reduction: 15,
-          areaRestored: 2.5
+          treesPlanted: 3200,
+          co2Reduction: 22,
+          areaRestored: 6.5
         }
       },
       goals: [
-        "Plant 1,000 native trees across 5 city locations",
-        "Establish 3 community-managed green zones",
-        "Reduce local air pollution by 15%",
-        "Create habitat for native bird species"
+        "Plant 5,000 native trees in 10 Mumbai wards",
+        "Create 5 community-managed green zones",
+        "Reduce PM2.5 levels by 10% in target areas",
+        "Engage 20 schools in environmental education"
       ],
       requirements: [
-        "Ability to participate in at least 3 planting sessions",
-        "Basic understanding of plant care",
-        "Willingness to work outdoors in various weather conditions"
+        "Participate in at least 2 planting sessions",
+        "Basic plant care knowledge",
+        "Willingness to work outdoors in Mumbai weather"
       ],
       updates: [
         {
-          date: "2023-12-10",
-          content: "Successfully completed the first phase with 200 trees planted in the North District. Great turnout from community volunteers!"
+          date: "2025-10-15",
+          content: "First phase complete: 1,200 trees planted in Andheri and Bandra."
         },
         {
-          date: "2024-01-15",
-          content: "Environmental impact assessment shows 5% improvement in local air quality around planted areas."
+          date: "2025-12-01",
+          content: "Air quality improved by 4% in pilot zones."
         }
       ],
       coordinator: {
-        name: "Dr. Emily Chen",
-        contact: "emily.chen@greenearthfoundation.org"
+        name: "Dr. Rakesh Patil",
+        contact: "rakesh.patil@greenmumbai.org"
       },
       funding: {
-        source: "City Environmental Grant Program",
-        amount: "₹15,00,000"
+        source: "Brihanmumbai Municipal Corporation (BMC)",
+        amount: "₹22,00,000"
       },
-      partners: ["City Parks Department", "Local University", "Neighborhood Association"]
+      partners: ["BMC", "Mumbai University", "Local Schools"]
     },
     {
       id: "proj-002",
-      title: "Coastal Cleanup Campaign",
-      organization: "Ocean Guardians",
-      location: "Beach Sector 3",
-      startDate: "2024-01-10",
-      endDate: "2024-04-10",
-      participants: 42,
-      maxParticipants: 75,
-      progress: 65,
+      title: "Chennai Marina Beach Cleanup",
+      organization: "Ocean Care India",
+      location: "Marina Beach, Chennai, Tamil Nadu",
+      startDate: "2025-08-20",
+      endDate: "2025-11-20",
+      participants: 85,
+      maxParticipants: 150,
+      progress: 70,
       status: "active" as "active",
       impact: "Medium",
-      xp: "25 XP",
-      description: "Join our efforts to clean up plastic and other waste from our coastal areas. This ongoing campaign focuses on weekend cleanup events and educating beachgoers about plastic pollution.",
+      xp: "30 XP",
+      description: "Volunteer for weekend cleanups at Marina Beach! Remove plastic waste, educate beachgoers, and help protect marine life. Supported by Chennai Corporation and local NGOs.",
       environmentalImpact: {
         type: "Marine habitat protection and plastic pollution reduction",
         metrics: {
-          wasteRecycled: 870,
-          areaRestored: 4.2,
-          speciesProtected: 12
+          wasteRecycled: 1200,
+          areaRestored: 5.8,
+          speciesProtected: 18
         }
       },
       goals: [
-        "Remove 2 tons of plastic waste from coastal areas",
-        "Recycle at least 50% of collected waste",
-        "Install 15 educational signboards along the beach",
-        "Reduce plastic pollution on target beaches by 40%"
+        "Remove 3 tons of plastic waste from Marina Beach",
+        "Install 20 educational signboards",
+        "Engage 10 local schools in awareness drives",
+        "Reduce plastic pollution by 30% in target zones"
       ],
       requirements: [
         "Commitment to at least 2 cleanup events",
-        "Ability to work in sandy and sometimes wet conditions",
+        "Ability to work in sandy and humid conditions",
         "Basic understanding of waste segregation"
       ],
       updates: [
@@ -339,8 +349,8 @@ export default function UserDashboard() {
         authorArray = ["Unknown Author"];
       }
       
-      // Get publication date/year (handle both formats)
-      const pubDate = item.publicationDate || item.publicationYear || "2023";
+  // Get publication date (fallback to a default year string)
+  const pubDate = item.publicationDate || "2023";
       
       // Set selected PDF for modal
       setSelectedPdf({
@@ -443,6 +453,43 @@ export default function UserDashboard() {
     setUploadedFiles((prev) => [...prev, ...files])
     console.log("[v0] Files uploaded:", files.length)
   }
+
+  // Attendance functions
+  const handleMarkAttendance = (project: any, type: 'checkin' | 'checkout') => {
+    setSelectedProjectForAttendance({
+      id: project.id,
+      title: project.title,
+      organization: project.organization,
+      location: project.location || "Project Location",
+      coordinates: project.coordinates // Add coordinates if available
+    });
+    setAttendanceType(type);
+    setAttendanceModalOpen(true);
+  };
+
+  const handleAttendanceSuccess = () => {
+    if (selectedProjectForAttendance && attendanceType === 'checkin') {
+      setCheckedInProjects(prev => new Set([...prev, selectedProjectForAttendance.id]));
+      toast({
+        title: "Check-in Successful",
+        description: `You have successfully checked in to ${selectedProjectForAttendance.title}.`,
+      });
+    } else if (selectedProjectForAttendance && attendanceType === 'checkout') {
+      setCheckedInProjects(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(selectedProjectForAttendance.id);
+        return newSet;
+      });
+      toast({
+        title: "Check-out Successful", 
+        description: `You have successfully checked out of ${selectedProjectForAttendance.title}.`,
+      });
+    }
+    setAttendanceModalOpen(false);
+    setSelectedProjectForAttendance(null);
+  };
+
+  const hasCheckedInProjects = checkedInProjects.size > 0;
   
   const translations = {
     en: {
@@ -849,6 +896,34 @@ export default function UserDashboard() {
                 </div>
               </div>
 
+              {/* Checkout Alert - Show if user has checked-in projects */}
+              {hasCheckedInProjects && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0">
+                      <Clock className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-medium text-orange-800">
+                        Don't forget to check out!
+                      </h3>
+                      <p className="text-sm text-orange-700 mt-1">
+                        You have {checkedInProjects.size} active project{checkedInProjects.size > 1 ? 's' : ''} checked in. 
+                        Remember to check out when you're done to track your contribution hours.
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActiveSection("my-active-projects")}
+                      className="bg-orange-100 border-orange-300 text-orange-700 hover:bg-orange-200"
+                    >
+                      Check Out
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* My Impact Graphic */}
               <Card className="glass">
                 <CardHeader>
@@ -898,7 +973,7 @@ export default function UserDashboard() {
                       {(() => {
                         const xpInfo = calculateXpForNextLevel();
                         const nextLevel = userLevel + 1;
-                        const totalForNext = xpInfo.current + xpInfo.needed;
+                        const totalForNext = xpForNextLevel || Math.pow(userLevel, 2) * 10; // fallback if needed
                         return (
                           <>
                             <div className="flex items-center justify-between text-sm">
@@ -976,7 +1051,32 @@ export default function UserDashboard() {
                         <Progress value={project.progress} className="h-2" />
                       </div>
                       
-                      <div className="mt-3 flex justify-end">
+                      <div className="mt-3 flex gap-2">
+                        {/* Mark Attendance Button */}
+                        <Button
+                          variant={checkedInProjects.has(project.id) ? "destructive" : "default"}
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const isCheckedIn = checkedInProjects.has(project.id);
+                            handleMarkAttendance(project, isCheckedIn ? 'checkout' : 'checkin');
+                          }}
+                          className="flex-1"
+                        >
+                          {checkedInProjects.has(project.id) ? (
+                            <>
+                              <Clock className="w-3 h-3 mr-1" />
+                              Check Out
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Check In
+                            </>
+                          )}
+                        </Button>
+                        
+                        {/* View Details Button */}
                         <Button 
                           variant="outline" 
                           size="sm"
@@ -1138,6 +1238,8 @@ export default function UserDashboard() {
                           xp: "+5 XP",
                           description: language === "en" ? "Understanding the fundamentals of climate change" : "जलवायु परिवर्तन की मूल बातें समझना",
                           level: language === "en" ? "Beginner" : "शुरुआती",
+                          url: "https://youtu.be/k_yIpmLNMqU",
+                          youtubeId: "k_yIpmLNMqU",
                         },
                         {
                           id: "video-2",
@@ -1147,6 +1249,8 @@ export default function UserDashboard() {
                           xp: "+8 XP",
                           description: language === "en" ? "Protecting our marine ecosystems" : "हमारे समुद्री पारिस्थितिक तंत्र की रक्षा",
                           level: language === "en" ? "Intermediate" : "मध्यम",
+                          url: "https://youtu.be/Xu_GqF3yiHA",
+                          youtubeId: "Xu_GqF3yiHA",
                         },
                         {
                           id: "video-3",
@@ -1156,6 +1260,8 @@ export default function UserDashboard() {
                           xp: "+12 XP",
                           description: language === "en" ? "Exploring sustainable energy alternatives" : "स्थायी ऊर्जा विकल्पों की खोज",
                           level: language === "en" ? "Advanced" : "उन्नत",
+                          url: "https://youtu.be/HbW_WAIZ2OE",
+                          youtubeId: "HbW_WAIZ2OE",
                         },
                         {
                           id: "video-4",
@@ -1165,6 +1271,8 @@ export default function UserDashboard() {
                           xp: "+6 XP",
                           description: language === "en" ? "Eco-friendly farming practices" : "पर्यावरण अनुकूल कृषि प्रथाएं",
                           level: language === "en" ? "Beginner" : "शुरुआती",
+                          url: "https://youtu.be/ipVxxxqwBQw",
+                          youtubeId: "ipVxxxqwBQw",
                         },
                         {
                           id: "video-5",
@@ -1174,6 +1282,8 @@ export default function UserDashboard() {
                           xp: "+10 XP",
                           description: language === "en" ? "Preserving species and ecosystems" : "प्रजातियों और पारिस्थितिक तंत्र का संरक्षण",
                           level: language === "en" ? "Intermediate" : "मध्यम",
+                          url: "https://youtu.be/wbR-5mHI6bo",
+                          youtubeId: "wbR-5mHI6bo",
                         },
                         {
                           id: "video-6",
@@ -1183,6 +1293,19 @@ export default function UserDashboard() {
                           xp: "+15 XP",
                           description: language === "en" ? "Eco-friendly technological innovations" : "पर्यावरण अनुकूल तकनीकी नवाचार",
                           level: language === "en" ? "Advanced" : "उन्नत",
+                          url: "https://youtu.be/LxgMdjyw8uw",
+                          youtubeId: "LxgMdjyw8uw",
+                        },
+                        {
+                          id: "video-7",
+                          type: "video",
+                          title: language === "en" ? "Sustainability in Practice" : "व्यवहार में स्थिरता",
+                          duration: language === "en" ? "9 min" : "9 मिनट",
+                          xp: "+9 XP",
+                          description: language === "en" ? "Real-world sustainability case studies" : "वास्तविक दुनिया के स्थिरता केस अध्ययन",
+                          level: language === "en" ? "Intermediate" : "मध्यम",
+                          url: "https://youtu.be/RnvCbquYeIM",
+                          youtubeId: "RnvCbquYeIM",
                         },
                       ].map((video) => (
                         <div
@@ -1195,10 +1318,17 @@ export default function UserDashboard() {
                             </div>
                           )}
                           <div 
-                            className="w-full h-24 bg-gradient-to-br from-blue-100 to-green-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden"
+                            className="w-full h-24 rounded-lg mb-3 relative overflow-hidden"
                             onClick={() => handleEducationClick(video)}
                           >
-                            <Play className="w-8 h-8 text-blue-600" />
+                            <img
+                              src={`https://img.youtube.com/vi/${(video as any).youtubeId}/hqdefault.jpg`}
+                              alt={video.title}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                            <div className="absolute inset-0 bg-black/20" />
+                            <Play className="w-8 h-8 text-white absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 drop-shadow" />
                             <div className="absolute top-2 right-2">
                               <Badge className="bg-blue-100 text-blue-700 text-xs">
                                 {video.level}
@@ -1213,17 +1343,22 @@ export default function UserDashboard() {
                             <span>{video.duration}</span>
                             <Badge className="bg-emerald-100 text-emerald-700">{video.xp}</Badge>
                           </div>
-                          <Button
-                            variant={completedItems.has(video.id) ? "secondary" : "outline"}
-                            size="sm"
-                            className="w-full"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleCompletion(video.id, video);
-                            }}
-                          >
-                            {completedItems.has(video.id) ? "Completed" : "Mark as Complete"}
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button asChild variant="outline" size="sm" className="flex-1">
+                              <a href={(video as any).url} target="_blank" rel="noopener noreferrer">Watch</a>
+                            </Button>
+                            <Button
+                              variant={completedItems.has(video.id) ? "secondary" : "outline"}
+                              size="sm"
+                              className="flex-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleCompletion(video.id, video);
+                              }}
+                            >
+                              {completedItems.has(video.id) ? "Completed" : "Mark as Complete"}
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1373,10 +1508,20 @@ export default function UserDashboard() {
                             </div>
                           )}
                           <div 
-                            className="w-full h-24 bg-gradient-to-br from-green-100 to-blue-100 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden"
+                            className="w-full h-24 rounded-lg mb-3 relative overflow-hidden bg-muted"
                             onClick={() => handleEducationClick(item)}
                           >
-                            <BookOpen className="w-8 h-8 text-green-600" />
+                            {/* Inline PDF preview (first page) */}
+                            <object
+                              data={`/Education/${item.filename}#page=1&view=FitH`}
+                              type="application/pdf"
+                              className="w-full h-full pointer-events-none"
+                              aria-hidden="true"
+                            >
+                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-100 to-blue-100">
+                                <BookOpen className="w-8 h-8 text-green-600" />
+                              </div>
+                            </object>
                             <div className="absolute bottom-2 right-2">
                               <Badge className="bg-blue-100 text-blue-700 text-xs">
                                 {item.publicationYear || "PDF"}
@@ -1529,6 +1674,18 @@ export default function UserDashboard() {
             setSelectedProject(null);
           }
         }}
+      />
+
+      {/* User Attendance Modal - For checking in/out of projects */}
+      <UserAttendanceModal
+        project={selectedProjectForAttendance}
+        attendanceType={attendanceType}
+        open={attendanceModalOpen}
+        onClose={() => {
+          setAttendanceModalOpen(false);
+          setSelectedProjectForAttendance(null);
+        }}
+        onSuccess={handleAttendanceSuccess}
       />
     </div>
   )

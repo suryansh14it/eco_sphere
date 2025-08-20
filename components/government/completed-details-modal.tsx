@@ -39,7 +39,7 @@ export function GovCompletedDetailsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[820px] max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-hidden flex flex-col w-[90vw] p-8">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle className="w-5 h-5 text-emerald-600" />

@@ -14,8 +14,13 @@ export default function DashboardSelection() {
       name: "Government Portal",
       icon: Shield,
       color: "from-blue-500 to-cyan-500",
-      description: "Manage policies, funding, and environmental projects",
-      features: ["Project Approval", "Funding Allocation", "Impact Metrics", "Policy Management"],
+      description: "Central and State Government dashboard for managing Indian environmental policies, funding, and projects (e.g., Namami Gange, National Clean Air Programme)",
+      features: [
+        "Approve and monitor Swachh Bharat, Jal Jeevan Mission, and other schemes",
+        "Allocate funding to state/UT projects",
+        "Track real-time air/water quality metrics (CPCB/NAMP)",
+        "Policy management and compliance (MoEFCC, CPCB)"
+      ],
       route: "/government",
     },
     {
@@ -23,8 +28,13 @@ export default function DashboardSelection() {
       name: "Research Hub",
       icon: BarChart3,
       color: "from-teal-500 to-emerald-500",
-      description: "Access data, collaborate on research, and generate insights",
-      features: ["SDG Analytics", "Data Visualization", "Research Collaboration", "Impact Reports"],
+      description: "Collaborate on Indian environmental research, access datasets (ISRO, CPCB, IMD), and generate SDG insights",
+      features: [
+        "SDG analytics for India (NITI Aayog, UN SDG India Index)",
+        "Visualize air, water, and biodiversity data (IITs, IISc, NEERI)",
+        "Research collaboration with Indian institutes",
+        "Publish impact reports for Indian states/districts"
+      ],
       route: "/researcher",
     },
     {
@@ -32,8 +42,13 @@ export default function DashboardSelection() {
       name: "Community Space",
       icon: TreePine,
       color: "from-emerald-500 to-green-500",
-      description: "Join initiatives, track impact, and engage with community",
-      features: ["Project Participation", "Impact Tracking", "Environmental Education", "Community Leaderboard"],
+      description: "Join local Indian initiatives, track your impact, and engage with community projects (tree plantation, cleanups, water conservation)",
+      features: [
+        "Participate in city/district projects (e.g., Mumbai Beach Cleanup, Delhi Tree Plantation)",
+        "Track personal and community impact (XP, leaderboard)",
+        "Access environmental education in Hindi, Bengali, Tamil, etc.",
+        "Connect with local leaders and volunteers"
+      ],
       route: "/user",
     },
     {
@@ -41,8 +56,13 @@ export default function DashboardSelection() {
       name: "NGO Platform",
       icon: Users,
       color: "from-purple-500 to-pink-500",
-      description: "Coordinate campaigns, manage volunteers, and advocate for change",
-      features: ["Campaign Management", "Volunteer Coordination", "Government Proposals", "Community Feedback"],
+      description: "Coordinate campaigns, manage volunteers, and propose projects to government (e.g., WWF India, CSE, TERI)",
+      features: [
+        "Manage campaigns (plastic ban, river cleanups, afforestation)",
+        "Volunteer coordination and training",
+        "Submit proposals to government portals",
+        "Collect feedback from local communities"
+      ],
       route: "/ngo",
     },
   ]

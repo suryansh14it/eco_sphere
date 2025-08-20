@@ -156,7 +156,7 @@ export function AIAnalysisModal({ projectData, children }: AIAnalysisModalProps)
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] w-[90vw] overflow-hidden">
+      <DialogContent className="max-w-7xl max-h-[90vh] w-[95vw] overflow-hidden p-8">
         <DialogHeader className="pb-4 border-b">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Brain className="w-6 h-6 text-primary" />

@@ -1,11 +1,29 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowRight, Users, Globe, Leaf, Droplets, TreePine, Sparkles, TrendingUp } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
+
+// Allow using the <model-viewer> custom element in TSX
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      "model-viewer": any
+    }
+  }
+}
+
+// Client-only wrapper for the custom element to avoid SSR hydration mismatch
+const ModelViewer = (props: any) => {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  if (!mounted) return null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (React.createElement as any)("model-viewer", props)
+}
 
 const useCountUp = (end: number, duration = 1000, delay = 0) => {
   const [count, setCount] = useState(0)
@@ -166,40 +184,54 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      <section id="home" className="relative py-20 lg:py-32 overflow-hidden floating-leaves">
-        <div className="sunlight-rays" />
-        <div className="floating-clouds">
-          <div className="cloud cloud-1" />
-          <div className="cloud cloud-2" />
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-br from-green-50/80 via-blue-50/40 to-stone-50/60" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(22,163,74,0.08),transparent_50%)]" />
+      <section
+        id="home"
+        className="relative py-16 lg:py-28 overflow-hidden floating-leaves bg-cover bg-center"
+        style={{ backgroundImage: `url('/landing page background.png')` }}
+  >
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="glass-strong rounded-3xl p-8 lg:p-12 max-w-4xl mx-auto hover-lift pulse-glow">
-              <Badge className="mb-6 bg-gradient-to-r from-green-100 to-blue-100 text-green-700 hover:from-green-200 hover:to-blue-200 transition-all duration-300 border-green-200">
-                <Sparkles className="w-4 h-4 mr-2" />
-                Connecting Environmental Action
-              </Badge>
-              <h1 className="font-bold text-4xl lg:text-6xl text-stone-800 mb-6 leading-tight">
-                Unite for Our Planet's
-                <span className="gradient-text"> Future</span>
-              </h1>
-              <p className="text-lg lg:text-xl text-stone-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-                Empowering governments, researchers, communities, and NGOs to collaborate on environmental solutions
-                through data-driven insights and unified action.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button
-                  size="lg"
-                  className="bg-gradient-to-r from-green-600 to-blue-500 hover:from-green-700 hover:to-blue-600 hover:shadow-xl hover:scale-105 transition-all duration-300 text-white forest-shadow"
-                  asChild
-                >
-                  <a href="/signup">
-                    Start Collaborating
-                    <ArrowRight className="w-5 h-5 ml-2" />
-                  </a>
-                </Button>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+            <div className="order-2 lg:order-1">
+              <div className="glass-strong rounded-3xl p-8 lg:p-12 hover-lift pulse-glow backdrop-blur-sm">
+                <Badge className="mb-6 bg-gradient-to-r from-green-100 to-blue-100 text-green-700 hover:from-green-200 hover:to-blue-200 transition-all duration-300 border-green-200">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Connecting Environmental Action
+                </Badge>
+                <h1 className="font-bold text-4xl lg:text-6xl text-stone-800 mb-6 leading-tight">
+                  Unite for Our Planet's
+                  <span className="gradient-text"> Future</span>
+                </h1>
+                <p className="text-lg lg:text-xl text-stone-700 mb-8 max-w-2xl leading-relaxed">
+                  Empowering governments, researchers, communities, and NGOs to collaborate on environmental solutions
+                  through data-driven insights and unified action.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Button
+                    size="lg"
+                    className="bg-gradient-to-r from-green-600 to-blue-500 hover:from-green-700 hover:to-blue-600 hover:shadow-xl hover:scale-105 transition-all duration-300 text-white forest-shadow w-full sm:w-auto"
+                    asChild
+                  >
+                    <a href="/signup">
+                      Get Started
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className="order-1 lg:order-2 flex justify-center">
+              <div suppressHydrationWarning className="w-[280px] h-[280px] sm:w-[360px] sm:h-[360px] lg:w-[480px] lg:h-[480px] rounded-full flex items-center justify-center">
+                <ModelViewer
+                  src="/Earth/source/earth-cartoon.glb"
+                  alt="Rotating Earth model"
+                  camera-controls
+                  auto-rotate
+                  rotation-per-second="30deg"
+                  shadow-intensity="0.8"
+                  exposure="1"
+                  disable-zoom
+                  style={{ width: "100%", height: "100%", background: "transparent" }}
+                />
               </div>
             </div>
           </div>

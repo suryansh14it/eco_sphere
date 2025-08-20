@@ -1,3 +1,5 @@
+import { LogoAnimation } from "@/components/logo-animation"
+
 export default function Loading() {
-  return null
+  return <LogoAnimation isVisible={true} />
 }

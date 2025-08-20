@@ -239,6 +239,8 @@ export function useUserProgress() {
     isLoading,
   userXp: dashboardData?.totalXp ?? user?.xpPoints ?? 0,
   userLevel: dashboardData?.level ?? user?.level ?? 1,
+  xpForNextLevel: dashboardData?.xpForNextLevel ?? (user?.level ? Math.pow(user.level, 2) * 10 : 10),
+  xpToNextLevel: dashboardData?.xpToNextLevel ?? 0,
   userImpact: dashboardData?.environmentalImpact ?? user?.environmentalImpact ?? { treesPlanted: 0, co2Offset: 0, waterSaved: 0 },
   activityHistory: dashboardData?.recentActivity ?? user?.activityHistory ?? [],
     completedItems: user?.completedItems || []
