@@ -230,12 +230,20 @@ export function NGOProjectProposalModal({
         totalProjectCost: projectData.funding
       }
 
-      const response = await fetch('/api/government-proposals', {
+      // Since this is a researcher-advised proposal, use the researcher-proposals endpoint
+      const response = await fetch('/api/researcher-proposals', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(proposalData),
+        body: JSON.stringify({
+          ...proposalData,
+          // Additional researcher-specific fields
+          researcherName: projectData.researcher,
+          researcherEmail: projectData.researcherEmail,
+          researcherPhone: projectData.researcherPhone,
+          researcherCommission: projectData.researcherCommission,
+        }),
       })
 
       const result = await response.json()

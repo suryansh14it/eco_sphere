@@ -219,12 +219,19 @@ export function LocalInitiativeModal({
         totalProjectCost: formData.projectFunding
       }
 
-      const response = await fetch('/api/government-proposals', {
+      // For local initiatives, use the local-initiatives endpoint
+      const response = await fetch('/api/local-initiatives', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(proposalData),
+        body: JSON.stringify({
+          ...proposalData,
+          // Additional local initiative specific fields
+          communityInvolvement: formData.proposalSummary, // Using existing field
+          sustainabilityPlan: formData.implementationPlan, // Using existing field
+          ngoProjectFund: formData.projectFunding,
+        }),
       })
 
       const result = await response.json()
