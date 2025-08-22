@@ -1,15 +1,45 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// This is a simplified middleware that doesn't perform any authentication checks
-// All authentication is now handled on the client side
-
 export function middleware(request: NextRequest) {
-  // Just pass through all requests without any modifications
+  const session = request.cookies.get('user_session');
+  
+  // Protected routes that require authentication
+  const protectedPaths = ['/dashboard', '/government', '/researcher', '/ngo', '/user'];
+  const isProtectedRoute = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path));
+
+  if (isProtectedRoute && !session) {
+    const response = NextResponse.redirect(new URL('/login', request.url));
+    response.cookies.delete('user_session');
+    return response;
+  }
+
+  // Allow access to auth routes only if user is not logged in
+  const authRoutes = ['/login', '/signup'];
+  const isAuthRoute = authRoutes.some(path => request.nextUrl.pathname.startsWith(path));
+  
+  if (isAuthRoute && session) {
+    try {
+      const userData = JSON.parse(session.value);
+      return NextResponse.redirect(new URL(`/${userData.role}`, request.url));
+    } catch (error) {
+      const response = NextResponse.redirect(new URL('/login', request.url));
+      response.cookies.delete('user_session');
+      return response;
+    }
+  }
+
   return NextResponse.next();
 }
 
-// Configure middleware to run only on specific paths if needed
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    '/dashboard/:path*',
+    '/government/:path*',
+    '/researcher/:path*',
+    '/ngo/:path*',
+    '/user/:path*',
+    '/login',
+    '/signup'
+  ]
 };

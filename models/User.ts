@@ -94,7 +94,7 @@ const userSchema = new mongoose.Schema<IUser>({
   },
   isVerified: {
     type: Boolean,
-    default: false
+    default: true  // Setting default to true for all new users
   },
   
   // Government Official fields

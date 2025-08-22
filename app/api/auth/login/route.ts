@@ -1,21 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateUser } from '@/lib/auth';
+import connectDB from '@/lib/mongodb';
 
 export async function POST(request: NextRequest) {
   try {
+    // First ensure database connection
+    await connectDB();
+    
     const body = await request.json();
     const { email, password } = body;
 
-    // Validation
-    if (!email || !password) {
+    // Input validation
+    if (!email?.trim()) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { error: 'Email is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!password?.trim()) {
+      return NextResponse.json(
+        { error: 'Password is required' },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: 'Password must be at least 6 characters long' },
         { status: 400 }
       );
     }
 
     // Authenticate user
-    const user = await authenticateUser(email, password);
+    const user = await authenticateUser(email.trim().toLowerCase(), password);
     if (!user) {
       return NextResponse.json(
         { error: 'Invalid email or password' },
@@ -23,14 +41,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create session
+    // Check if user is verified (if you're using email verification)
+    if (!user.isVerified) {
+      return NextResponse.json(
+        { error: 'Please verify your email address before logging in' },
+        { status: 403 }
+      );
+    }
+
+    // Create session with encrypted data
     const session = {
       userId: user._id.toString(),
-      role: user.role
+      role: user.role,
+      timestamp: Date.now()
     };
 
-    // Create response
-  const response = NextResponse.json(
+    // Create response with user data
+    const response = NextResponse.json(
       {
         message: 'Login successful',
         user: {
@@ -38,22 +65,27 @@ export async function POST(request: NextRequest) {
           email: user.email,
           name: user.name,
           role: user.role,
-      isVerified: user.isVerified,
-      // include progression so client has correct values immediately
-      xpPoints: user.xpPoints || 0,
-      level: user.level || 1
+          isVerified: user.isVerified,
+          xpPoints: user.xpPoints || 0,
+          level: user.level || 1,
+          environmentalImpact: user.environmentalImpact || {
+            treesPlanted: 0,
+            co2Offset: 0,
+            waterSaved: 0
+          }
         },
-        redirectTo: `/${user.role}` // Add redirect info
+        redirectTo: `/${user.role}`
       },
       { status: 200 }
     );
 
-    // Store session data in a cookie
+    // Store session data in an HTTP-only cookie
     response.cookies.set('user_session', JSON.stringify(session), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 // 7 days
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+      path: '/'
     });
 
     return response;
