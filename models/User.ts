@@ -1,5 +1,6 @@
 import mongoose, { Document, Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { ecoTokenService } from '@/lib/ecotoken-service';
 
 export interface IActivityEvent {
   eventType: 'quiz_completion' | 'project_joined' | 'tree_planted' | 'issue_reported' | 'educational_content' | 'community_event';
@@ -33,7 +34,10 @@ export interface IUser extends Document {
   };
   achievements: string[];
   completedItems: string[];
-  
+
+  // Blockchain integration
+  walletAddress?: string;
+
   // Role-specific fields
   // Government Official
   department?: string;
@@ -219,7 +223,19 @@ const userSchema = new mongoose.Schema<IUser>({
   completedItems: [{
     type: String
   }],
-  
+
+  // Blockchain integration
+  walletAddress: {
+    type: String,
+    validate: {
+      validator: function(v: string) {
+        // Basic Ethereum address validation (0x followed by 40 hex characters)
+        return !v || /^0x[a-fA-F0-9]{40}$/.test(v);
+      },
+      message: 'Invalid Ethereum wallet address format'
+    }
+  },
+
   // Common optional fields
   phone: String,
   profileImage: String,
@@ -255,12 +271,12 @@ userSchema.methods.toJSON = function() {
 
 // Add XP and record activity
 userSchema.methods.addXP = async function(
-  amount: number, 
+  amount: number,
   activityData: Partial<IActivityEvent>
 ): Promise<IUser> {
   // Add XP points
   this.xpPoints += amount;
-  
+
   // Update level based on XP using a more exponential curve
   // Base level is 1, then each level requires progressively more XP
   // Formula: level = 1 + sqrt(xp / 10)
@@ -268,7 +284,7 @@ userSchema.methods.addXP = async function(
   const newLevel = Math.floor(1 + Math.sqrt(this.xpPoints / 10));
   const leveledUp = newLevel > oldLevel;
   this.level = newLevel;
-  
+
   // Create activity record
   const activity = {
     eventType: activityData.eventType || 'educational_content',
@@ -279,13 +295,13 @@ userSchema.methods.addXP = async function(
     relatedItemId: activityData.relatedItemId,
     ...activityData // Include any additional fields passed in the activity data
   };
-  
+
   // Add to activity history (limit to most recent 50 activities)
   this.activityHistory.unshift(activity); // Add to the beginning
   if (this.activityHistory.length > 50) {
     this.activityHistory = this.activityHistory.slice(0, 50);
   }
-  
+
   // Update environmental impact if provided
   if (activity.environmentalImpact) {
     if (activity.environmentalImpact.treesPlanted) {
@@ -298,9 +314,31 @@ userSchema.methods.addXP = async function(
       this.environmentalImpact.waterSaved += activity.environmentalImpact.waterSaved;
     }
   }
-  
+
+  // Save XP changes first (this ensures XP is recorded even if token minting fails)
   await this.save();
-  
+
+  // Attempt EcoToken minting if user has a wallet address
+  if (this.walletAddress && ecoTokenService.isEnabled()) {
+    try {
+      console.log(`🪙 Attempting to mint ${amount} EcoTokens for user ${this._id}`);
+      const mintResult = await ecoTokenService.mintTokensForXP(this.walletAddress, amount);
+
+      if (mintResult.success) {
+        console.log(`✅ Successfully minted ${amount} EcoTokens for user ${this._id}. Tx: ${mintResult.txHash}`);
+      } else {
+        console.error(`❌ Failed to mint EcoTokens for user ${this._id}:`, mintResult.error);
+      }
+    } catch (error) {
+      console.error(`❌ EcoToken minting error for user ${this._id}:`, error);
+      // Don't throw the error - XP should still be recorded even if token minting fails
+    }
+  } else if (this.walletAddress && !ecoTokenService.isEnabled()) {
+    console.log(`🔕 EcoToken integration disabled, skipping token minting for user ${this._id}`);
+  } else if (!this.walletAddress && ecoTokenService.isEnabled()) {
+    console.log(`👛 User ${this._id} has no wallet address, skipping token minting`);
+  }
+
   return this as unknown as IUser;
 };
 
