@@ -90,11 +90,23 @@ export async function GET(req: NextRequest) {
     
     const { searchParams } = new URL(req.url);
     const ngoId = searchParams.get('ngoId');
-    
+    const limit = parseInt(searchParams.get('limit') || '100'); // Increased default limit
+
+    // Build query - if no ngoId specified, fetch ALL initiatives
     const query = ngoId ? { ngoId } : {};
+    console.log('🔍 Local initiatives query:', query, 'limit:', limit);
+
     const initiatives = await NGOLocalInitiative.find(query)
       .sort({ submittedAt: -1 })
-      .limit(50);
+      .limit(limit);
+
+    console.log(`📊 Found ${initiatives.length} local initiatives`);
+    console.log('📋 Sample initiative:', initiatives[0] ? {
+      id: initiatives[0]._id,
+      title: initiatives[0].title,
+      ngoName: initiatives[0].ngoName,
+      location: initiatives[0].location
+    } : 'No initiatives found');
     
     return NextResponse.json({
       success: true,

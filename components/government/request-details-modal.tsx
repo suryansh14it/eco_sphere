@@ -72,7 +72,6 @@ export interface GovNewRequestDetail {
     qrCode?: string;
     status: "pending" | "completed";
     receipt?: string; // URL to uploaded payment receipt
-    verificationStatus?: "pending" | "verified" | "rejected";
   };
 }
 
@@ -105,8 +104,58 @@ export function GovRequestDetailsModal({
     notes: ""
   });
   const [paymentReceipt, setPaymentReceipt] = useState("");
+  const [selectedFileName, setSelectedFileName] = useState("");
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
 
   if (!request) return null;
+
+  const handleFileSelect = (file: File) => {
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf'];
+      if (!validTypes.includes(file.type)) {
+        setPaymentError("Please upload a valid image file (JPG, PNG, GIF) or PDF");
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        setPaymentError("File size must be less than 5MB");
+        return;
+      }
+
+      // Create a more descriptive filename with actual file name
+      const timestamp = Date.now();
+      const fileName = `receipt-${timestamp}-${file.name}`;
+      setPaymentReceipt(fileName);
+      setSelectedFileName(file.name);
+      setPaymentError(""); // Clear any previous errors
+      console.log("File selected:", file.name, "Size:", file.size, "Type:", file.type);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
   
   const handleOfferSubmit = () => {
     if (onSendOffer) {
@@ -115,10 +164,67 @@ export function GovRequestDetailsModal({
     }
   };
   
-  const handlePaymentSubmit = () => {
-    if (onUploadPaymentReceipt && paymentReceipt) {
-      onUploadPaymentReceipt(request.id, paymentReceipt);
+  const handlePaymentSubmit = async () => {
+    if (!paymentReceipt) return;
+
+    setIsSubmittingPayment(true);
+    setPaymentError("");
+
+    try {
+      // Prepare payment data
+      const paymentData = {
+        proposalId: request.id,
+        upiId: request.payment?.upiId || 'ecosphere@upi',
+        qrCode: request.payment?.qrCode || '',
+        totalAmount: request.negotiation?.govtOffer?.total || request.requestedFunding || '',
+        projectAmount: request.negotiation?.govtOffer?.projectAmount || '',
+        ngoCommission: request.negotiation?.govtOffer?.ngoCommission || '',
+        researcherCommission: request.negotiation?.govtOffer?.researcherCommission || '',
+        ngoCommissionPercent: request.negotiation?.govtOffer?.ngoCommissionPercent || 0,
+        researcherCommissionPercent: request.negotiation?.govtOffer?.researcherCommissionPercent || 0,
+        receiptUrl: paymentReceipt,
+        transactionId: `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      };
+
+      console.log('💳 Submitting payment data:', paymentData);
+
+      // Submit payment to database
+      const response = await fetch('/api/payments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to process payment');
+      }
+
+      // Call the original handler for UI updates
+      if (onUploadPaymentReceipt) {
+        onUploadPaymentReceipt(request.id, paymentReceipt);
+      }
+
+      // Show success message
+      console.log('✅ Payment processed successfully:', result);
+
       setIsPaymentMode(false);
+      setPaymentReceipt("");
+      setSelectedFileName("");
+
+      // Reset the file input
+      const fileInput = document.getElementById('receipt') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+
+    } catch (error) {
+      console.error('❌ Payment submission error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to process payment';
+      setPaymentError(`Payment failed: ${errorMessage}`);
+    } finally {
+      setIsSubmittingPayment(false);
     }
   };
 
@@ -377,39 +483,112 @@ export function GovRequestDetailsModal({
               
               <div className="w-full mt-4">
                 <Label htmlFor="receipt">Upload Payment Receipt</Label>
-                <div className="mt-2 flex items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 cursor-pointer hover:bg-muted/10">
+                <label
+                  htmlFor="receipt"
+                  className={`mt-2 flex items-center justify-center border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors ${
+                    isDragOver
+                      ? 'border-primary bg-primary/10'
+                      : paymentReceipt
+                        ? 'border-green-300 bg-green-50'
+                        : 'border-muted-foreground/25 hover:bg-muted/10'
+                  } ${isSubmittingPayment ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
                   <div className="text-center">
-                    <Upload className="w-8 h-8 mb-2 mx-auto text-muted-foreground" />
+                    <Upload className={`w-8 h-8 mb-2 mx-auto ${
+                      paymentReceipt ? 'text-green-600' : 'text-muted-foreground'
+                    }`} />
                     <p className="text-sm text-muted-foreground">
-                      Click to upload payment receipt or<br /> drag and drop
+                      {isDragOver
+                        ? 'Drop your file here'
+                        : 'Click to upload payment receipt or drag and drop'
+                      }
                     </p>
-                    <input 
-                      type="file" 
-                      className="hidden" 
-                      id="receipt" 
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          // In a real app, you would upload this to your server
-                          setPaymentReceipt(`receipt-${Date.now()}.jpg`);
-                        }
-                      }}
-                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Supports: JPG, PNG, GIF, PDF (max 5MB)
+                    </p>
+                    {paymentReceipt && (
+                      <p className="text-sm text-green-600 mt-2 font-medium">✓ Receipt selected</p>
+                    )}
                   </div>
-                </div>
+                  <input
+                    type="file"
+                    className="hidden"
+                    id="receipt"
+                    accept="image/*,.pdf"
+                    disabled={isSubmittingPayment}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleFileSelect(file);
+                      }
+                    }}
+                  />
+                </label>
+
+                {/* Selected file display */}
+                {paymentReceipt && selectedFileName && (
+                  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                        <Upload className="w-4 h-4 text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-green-800">File Selected</p>
+                        <p className="text-xs text-green-600 truncate">{selectedFileName}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPaymentReceipt("");
+                          setSelectedFileName("");
+                          // Reset the file input
+                          const fileInput = document.getElementById('receipt') as HTMLInputElement;
+                          if (fileInput) fileInput.value = '';
+                        }}
+                        className="text-green-600 hover:text-green-800 p-1"
+                        disabled={isSubmittingPayment}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {paymentError && (
+                  <p className="text-sm text-red-600 mt-2">⚠ {paymentError}</p>
+                )}
               </div>
             </div>
             
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsPaymentMode(false)}>Cancel</Button>
-              <Button 
-                className="gap-2" 
-                onClick={handlePaymentSubmit} 
-                disabled={!paymentReceipt}
+              <Button
+                variant="outline"
+                onClick={() => setIsPaymentMode(false)}
+                disabled={isSubmittingPayment}
               >
-                <Check className="w-4 h-4" />
-                Complete Payment
+                Cancel
+              </Button>
+              <Button
+                className="gap-2"
+                onClick={handlePaymentSubmit}
+                disabled={!paymentReceipt || isSubmittingPayment}
+              >
+                {isSubmittingPayment ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Complete Payment
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </div>

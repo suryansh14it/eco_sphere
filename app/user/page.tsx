@@ -293,9 +293,10 @@ export default function UserDashboard() {
   // Get the current language object
   const currentLanguage = languageOptions.find(l => l.code === language) || languageOptions[0]
   
-  // Optional: Redirect based on user role (but don't block access)
+  // Redirect users to their correct dashboard based on role
   useEffect(() => {
     if (!loading && user && user.role !== 'user') {
+      console.log(`User dashboard: Redirecting ${user.role} user to their dashboard`);
       router.push(`/${user.role}`);
     }
   }, [user, loading, router]);

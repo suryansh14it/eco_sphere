@@ -147,10 +147,71 @@ const governmentProposalSchema = new mongoose.Schema({
     default: ''
   },
   
+  // Payment Information
+  paymentDetails: {
+    upiId: {
+      type: String,
+      default: ''
+    },
+    qrCode: {
+      type: String,
+      default: ''
+    },
+    totalAmount: {
+      type: String,
+      default: ''
+    },
+    projectAmount: {
+      type: String,
+      default: ''
+    },
+    ngoCommission: {
+      type: String,
+      default: ''
+    },
+    researcherCommission: {
+      type: String,
+      default: ''
+    },
+    ngoCommissionPercent: {
+      type: Number,
+      default: 0
+    },
+    researcherCommissionPercent: {
+      type: Number,
+      default: 0
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['pending', 'completed', 'failed'],
+      default: 'pending'
+    },
+    receiptUrl: {
+      type: String,
+      default: ''
+    },
+    transactionId: {
+      type: String,
+      default: ''
+    },
+    paymentDate: {
+      type: Date
+    },
+    verificationStatus: {
+      type: String,
+      enum: ['pending', 'verified', 'rejected'],
+      default: 'pending'
+    },
+    verificationNotes: {
+      type: String,
+      default: ''
+    }
+  },
+
   // Timeline
-  submittedAt: { 
-    type: Date, 
-    default: Date.now 
+  submittedAt: {
+    type: Date,
+    default: Date.now
   },
   expectedDecisionDate: {
     type: Date

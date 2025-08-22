@@ -57,8 +57,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   const fetchUser = async () => {
-    // For now, return null - no session-based auth
-    return null;
+    try {
+      // Check localStorage for user data first
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        console.log('User found in localStorage:', userData.role);
+        return userData;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      localStorage.removeItem('user');
+      return null;
+    }
   };
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -145,26 +157,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('Updated user data:', updatedUser);
     if (updatedUser) {
       console.log('User XP after refresh:', updatedUser.xpPoints);
+      setUser(updatedUser);
+    } else {
+      setUser(null);
     }
     setLoading(false);
   };
 
   // Check for existing auth when app starts
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       try {
-        // Check localStorage for user data
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          const userData = JSON.parse(storedUser);
-          console.log('User found in localStorage:', userData.role);
+        setLoading(true);
+        const userData = await fetchUser();
+        if (userData) {
+          console.log('User authenticated on app start:', userData.role);
           setUser(userData);
         } else {
-          console.log('No user found in localStorage');
+          console.log('No authenticated user found');
+          setUser(null);
         }
       } catch (error) {
         console.error('Auth check error:', error);
         localStorage.removeItem('user');
+        setUser(null);
       } finally {
         setLoading(false);
       }

@@ -87,11 +87,23 @@ export async function GET(req: NextRequest) {
     
     const { searchParams } = new URL(req.url);
     const ngoId = searchParams.get('ngoId');
-    
+    const limit = parseInt(searchParams.get('limit') || '100'); // Increased default limit
+
+    // Build query - if no ngoId specified, fetch ALL proposals
     const query = ngoId ? { ngoId } : {};
+    console.log('🔍 Researcher proposals query:', query, 'limit:', limit);
+
     const proposals = await NGOResearcherProposal.find(query)
       .sort({ submittedAt: -1 })
-      .limit(50);
+      .limit(limit);
+
+    console.log(`📊 Found ${proposals.length} researcher proposals`);
+    console.log('📋 Sample proposal:', proposals[0] ? {
+      id: proposals[0]._id,
+      title: proposals[0].title,
+      ngoName: proposals[0].ngoName,
+      location: proposals[0].location
+    } : 'No proposals found');
     
     return NextResponse.json({
       success: true,

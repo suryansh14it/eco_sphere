@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowRight, Users, Globe, Leaf, Droplets, TreePine, Sparkles, TrendingUp } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
+import { useRouter } from "next/navigation"
 
 // Allow using the <model-viewer> custom element in TSX
 declare global {
@@ -73,7 +74,8 @@ const useScrollReveal = () => {
 export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false)
   const { user, loading } = useAuth()
-  
+  const router = useRouter()
+
   const treesCount = useCountUp(1200000, 400, 0)
   const waterCount = useCountUp(500000, 300, 100)
   const countriesCount = useCountUp(45, 250, 200)
@@ -82,6 +84,14 @@ export default function LandingPage() {
   const co2Reduced = useCountUp(2500000, 1500, 400)
 
   useScrollReveal()
+
+  // Redirect authenticated users to their dashboard
+  useEffect(() => {
+    if (!loading && user) {
+      console.log(`Landing page: Redirecting authenticated ${user.role} user to their dashboard`);
+      router.push(`/${user.role}`);
+    }
+  }, [user, loading, router]);
 
   useEffect(() => {
     const handleScroll = () => {

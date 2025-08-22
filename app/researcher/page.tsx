@@ -475,9 +475,10 @@ export default function ResearcherDashboard() {
     ]
   };
 
-  // Optional: Redirect based on user role (but don't block access)
+  // Redirect users to their correct dashboard based on role
   useEffect(() => {
     if (!loading && user && user.role !== 'researcher') {
+      console.log(`Researcher dashboard: Redirecting ${user.role} user to their dashboard`);
       router.push(`/${user.role}`);
     }
   }, [user, loading, router]);
@@ -494,17 +495,17 @@ export default function ResearcherDashboard() {
     );
   }
 
-  // If wrong role, redirect
-  if (user.role !== 'researcher') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-teal-50 to-emerald-50">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-lg text-teal-700">Redirecting to appropriate dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  // If wrong role, redirect - Commented out to prevent automatic redirects
+  // if (user.role !== 'researcher') {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-teal-50 to-emerald-50">
+  //       <div className="text-center">
+  //         <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+  //         <p className="text-lg text-teal-700">Redirecting to appropriate dashboard...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-teal-50 to-emerald-50">

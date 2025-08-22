@@ -166,7 +166,181 @@ export default function GovernmentDashboard() {
   // New states for negotiation
   const [acceptedProposals, setAcceptedProposals] = useState<GovNewRequestDetail[]>([])
   const [negotiatingProposals, setNegotiatingProposals] = useState<GovNewRequestDetail[]>([])
-  
+  // State for dynamic project requests
+  const [projectRequests, setProjectRequests] = useState<GovNewRequestDetail[]>([])
+  const [isLoadingRequests, setIsLoadingRequests] = useState(true)
+  const [isAddingTestData, setIsAddingTestData] = useState(false)
+
+  // Fetch project requests from database
+  const fetchProjectRequests = async () => {
+    try {
+      setIsLoadingRequests(true)
+
+      // Fetch ALL projects from database - no filtering, no auth required
+      const [localInitiativesRes, researcherProposalsRes] = await Promise.all([
+        fetch('/api/ngo/local-initiative'), // Remove limit to get all
+        fetch('/api/ngo/researcher-proposal') // Remove limit to get all
+      ])
+
+      const localInitiativesData = await localInitiativesRes.json()
+      const researcherProposalsData = await researcherProposalsRes.json()
+
+      console.log('🔍 Local initiatives response:', localInitiativesData)
+      console.log('🔍 Researcher proposals response:', researcherProposalsData)
+
+      const dbRequests: GovNewRequestDetail[] = []
+
+      // Log the actual data structure for debugging
+      if (localInitiativesData.success) {
+        console.log('📊 Local initiatives count:', localInitiativesData.initiatives?.length || 0)
+        if (localInitiativesData.initiatives?.length > 0) {
+          console.log('📋 Sample local initiative:', localInitiativesData.initiatives[0])
+        }
+      }
+
+      if (researcherProposalsData.success) {
+        console.log('📊 Researcher proposals count:', researcherProposalsData.proposals?.length || 0)
+        if (researcherProposalsData.proposals?.length > 0) {
+          console.log('📋 Sample researcher proposal:', researcherProposalsData.proposals[0])
+        }
+      }
+
+      // Map NGO Local Initiatives to GovNewRequestDetail format
+      if (localInitiativesData.success && localInitiativesData.initiatives) {
+        localInitiativesData.initiatives.forEach((initiative: any) => {
+          // Calculate commission percentages if funding is available
+          const totalFunding = parseFloat(initiative.projectFunding?.replace(/[₹,Cr]/g, '') || '0')
+          const ngoCommissionAmount = parseFloat(initiative.ngoCommission?.replace(/[₹,L]/g, '') || '0')
+
+          const ngoCommissionPercent = totalFunding > 0 ? (ngoCommissionAmount / totalFunding) * 100 : 0
+
+          dbRequests.push({
+            id: `local-${initiative._id}`,
+            title: initiative.title,
+            organization: initiative.ngoName,
+            location: initiative.location,
+            priority: "Medium" as const, // Default priority for local initiatives
+            description: initiative.description,
+            requestedFunding: initiative.projectFunding,
+            fundingBreakdown: {
+              total: initiative.projectFunding,
+              projectAmount: initiative.projectFunding,
+              ngoCommission: initiative.ngoCommission || "₹0",
+              researcherCommission: "₹0", // No researcher in local initiatives
+              ngoCommissionPercent: Math.round(ngoCommissionPercent * 10) / 10,
+              researcherCommissionPercent: 0,
+            },
+            objectives: initiative.categories?.length > 0 ? initiative.categories : [initiative.expectedImpact || "Local community initiative"],
+            proposedTimeline: {
+              start: initiative.expectedStartDate || "TBD",
+              end: "TBD" // Calculate from timeline if needed
+            },
+            proposedImpact: {
+              summary: initiative.expectedImpact || "Community-driven environmental impact",
+              // Map key metrics if available
+              ...(initiative.keyMetrics?.carbonReduction && {
+                co2ReductionTons: parseFloat(initiative.keyMetrics.carbonReduction) || 0
+              }),
+              ...(initiative.keyMetrics?.areaImpact && {
+                areaRestoredHa: parseFloat(initiative.keyMetrics.areaImpact) || 0
+              })
+            },
+            requirements: [initiative.implementationPlan || "Local initiative implementation requirements"],
+            coordinator: {
+              name: "NGO Coordinator",
+              contact: "Contact via platform"
+            }
+          })
+        })
+      }
+
+      // Map NGO Researcher Proposals to GovNewRequestDetail format
+      if (researcherProposalsData.success && researcherProposalsData.proposals) {
+        researcherProposalsData.proposals.forEach((proposal: any) => {
+          // Calculate commission percentages if funding is available
+          const totalFunding = parseFloat(proposal.funding?.replace(/[₹,Cr]/g, '') || '0')
+          const ngoCommissionAmount = parseFloat(proposal.ngoCommission?.replace(/[₹,L]/g, '') || '0')
+          const researcherCommissionAmount = parseFloat(proposal.researcherCommission?.replace(/[₹,L]/g, '') || '0')
+
+          const ngoCommissionPercent = totalFunding > 0 ? (ngoCommissionAmount / totalFunding) * 100 : 0
+          const researcherCommissionPercent = totalFunding > 0 ? (researcherCommissionAmount / totalFunding) * 100 : 0
+
+          dbRequests.push({
+            id: `researcher-${proposal._id}`,
+            title: proposal.title,
+            organization: proposal.ngoName,
+            location: proposal.location,
+            priority: "High" as const, // Researcher proposals typically high priority
+            description: proposal.description,
+            requestedFunding: proposal.funding,
+            fundingBreakdown: {
+              total: proposal.funding,
+              projectAmount: proposal.funding,
+              ngoCommission: proposal.ngoCommission || "₹0",
+              researcherCommission: proposal.researcherCommission || "₹0",
+              ngoCommissionPercent: Math.round(ngoCommissionPercent * 10) / 10,
+              researcherCommissionPercent: Math.round(researcherCommissionPercent * 10) / 10,
+            },
+            objectives: proposal.categories?.length > 0 ? proposal.categories : [proposal.proposalSummary || "Research-backed environmental objectives"],
+            proposedTimeline: {
+              start: proposal.expectedStartDate || "TBD",
+              end: "TBD" // Calculate from timeline if needed
+            },
+            proposedImpact: {
+              summary: proposal.proposalSummary || "Research-driven environmental impact"
+            },
+            requirements: proposal.sdgGoals?.length > 0 ? proposal.sdgGoals : ["Research methodology implementation", "Academic collaboration"],
+            coordinator: {
+              name: proposal.researcherName || "Research Coordinator",
+              contact: proposal.researcherPhone || "Contact via platform"
+            }
+          })
+        })
+      }
+
+      // Merge with static data
+      console.log('📊 Total DB requests found:', dbRequests.length)
+      console.log('📊 DB requests:', dbRequests)
+      setProjectRequests([...dbRequests, ...staticProjectRequests])
+
+    } catch (error) {
+      console.error('Error fetching project requests:', error)
+      // Fallback to static data only
+      setProjectRequests(staticProjectRequests)
+    } finally {
+      setIsLoadingRequests(false)
+    }
+  }
+
+  // Function to add test data to database
+  const addTestData = async () => {
+    try {
+      setIsAddingTestData(true)
+
+      const response = await fetch('/api/test-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        console.log('✅ Test data added:', result)
+        // Refresh the project requests after adding test data
+        await fetchProjectRequests()
+      } else {
+        console.error('❌ Failed to add test data:', result)
+      }
+
+    } catch (error) {
+      console.error('❌ Error adding test data:', error)
+    } finally {
+      setIsAddingTestData(false)
+    }
+  }
+
   // Initialize with dummy data for demonstration
   useEffect(() => {
     // Sample proposals in negotiation
@@ -423,8 +597,7 @@ export default function GovernmentDashboard() {
         payment: {
           upiId: "coastaleco@upi",
           status: "completed",
-          receipt: "receipt-mangrove-123456.jpg",
-          verificationStatus: "verified"
+          receipt: "receipt-mangrove-123456.jpg"
         }
       }
     ];
@@ -434,7 +607,10 @@ export default function GovernmentDashboard() {
     
     setAcceptedProposals(filteredAccepted);
     setNegotiatingProposals(sampleNegotiating);
-  }, []);
+
+    // Fetch project requests from database immediately (no auth required)
+    fetchProjectRequests();
+  }, []); // Removed user dependency
 
   const activeProjectsCount = useCountUp(142, 800, 100)
   const pendingRequestsCount = useCountUp(37, 600, 200)
@@ -571,42 +747,46 @@ export default function GovernmentDashboard() {
     }
   }
   
-  const handleUploadPaymentReceipt = (requestId: string, receipt: string) => {
+  const handleUploadPaymentReceipt = async (requestId: string, receipt: string) => {
     // Find the request in the list
     const request = acceptedProposals.find(r => r.id === requestId);
     if (request) {
-      // Create a copy with the updated payment info
-      const updatedRequest = {
-        ...request,
-        payment: {
-          ...request.payment,
-          receipt: receipt,
-          status: "completed" as const,
-          verificationStatus: "pending" as const
-        },
-        negotiation: {
-          ...request.negotiation,
-          status: "approved" as const
-        }
-      };
-      
-      // In a real app, you'd make an API call here
-      console.log("[v0] Upload payment receipt for project:", requestId, receipt);
-      
-      // Update accepted proposals list with the payment receipt
-      setAcceptedProposals(prev => {
-        const filtered = prev.filter(p => p.id !== requestId);
-        return [...filtered, updatedRequest];
-      });
-      
-      // Close modal
-      setRequestModalOpen(false);
-      setSelectedRequest(null);
+      try {
+        // Update the local state immediately for better UX
+        const updatedRequest = {
+          ...request,
+          payment: {
+            ...request.payment,
+            receipt: receipt,
+            status: "completed" as const
+          },
+          negotiation: {
+            ...request.negotiation,
+            status: "approved" as const
+          }
+        };
+
+        // Update accepted proposals list with the payment receipt
+        setAcceptedProposals(prev => {
+          const filtered = prev.filter(p => p.id !== requestId);
+          return [...filtered, updatedRequest];
+        });
+
+        console.log("Payment receipt uploaded successfully for project:", requestId);
+
+        // Close modal
+        setRequestModalOpen(false);
+        setSelectedRequest(null);
+
+      } catch (error) {
+        console.error('Error updating payment receipt:', error);
+        // You could add error handling here, like showing a toast notification
+      }
     }
   }
 
-  // Enhanced project data with descriptions for AI analysis
-  const projectRequests: GovNewRequestDetail[] = [
+  // Static project data with descriptions for AI analysis
+  const staticProjectRequests: GovNewRequestDetail[] = [
     {
       id: "req-urban-forest",
       title: "Urban Forest Restoration",
@@ -859,20 +1039,69 @@ export default function GovernmentDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="glass">
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg font-serif">New Project Requests</CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-transparent"
-                    onClick={() => console.log("[v0] Filter clicked")}
-                  >
-                    <Filter className="w-4 h-4 mr-2" />
-                    Filter
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg font-serif">New Project Requests</CardTitle>
+                    <Badge variant="secondary">{projectRequests.length} total</Badge>
+                    {isLoadingRequests && (
+                      <Badge variant="outline" className="gap-1">
+                        <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        Loading...
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-transparent gap-1"
+                      onClick={fetchProjectRequests}
+                      disabled={isLoadingRequests}
+                    >
+                      <ArrowUpRight className="w-4 h-4" />
+                      Refresh
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-transparent"
+                      onClick={() => console.log("[v0] Filter clicked")}
+                    >
+                      <Filter className="w-4 h-4 mr-2" />
+                      Filter
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {projectRequests.map((request, index) => (
+                    {isLoadingRequests ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Loading project requests...
+                      </div>
+                    ) : projectRequests.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+                        <p>No project requests found</p>
+                        <p className="text-sm mb-4">New requests will appear here when submitted</p>
+                        <Button
+                          onClick={addTestData}
+                          disabled={isAddingTestData}
+                          variant="outline"
+                          className="gap-2"
+                        >
+                          {isAddingTestData ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              Adding Test Data...
+                            </>
+                          ) : (
+                            <>
+                              <FileText className="w-4 h-4" />
+                              Add Test Projects
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    ) : projectRequests.map((request, index) => (
                       <div
                         key={index}
                         className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
@@ -1351,20 +1580,69 @@ export default function GovernmentDashboard() {
         return (
           <Card className="glass h-[calc(100vh-120px)]">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg font-serif">New Project Requests</CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-transparent"
-                onClick={() => console.log("[v0] Filter clicked")}
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Filter
-              </Button>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg font-serif">New Project Requests</CardTitle>
+                <Badge variant="secondary">{projectRequests.length} total</Badge>
+                {isLoadingRequests && (
+                  <Badge variant="outline" className="gap-1">
+                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Loading...
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-transparent gap-1"
+                  onClick={fetchProjectRequests}
+                  disabled={isLoadingRequests}
+                >
+                  <ArrowUpRight className="w-4 h-4" />
+                  Refresh
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-transparent"
+                  onClick={() => console.log("[v0] Filter clicked")}
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filter
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="h-[calc(100%-80px)] overflow-y-auto">
               <div className="space-y-4">
-                {projectRequests.map((request, index) => (
+                {isLoadingRequests ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Loading project requests...
+                  </div>
+                ) : projectRequests.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+                    <p>No project requests found</p>
+                    <p className="text-sm mb-4">New requests will appear here when submitted</p>
+                    <Button
+                      onClick={addTestData}
+                      disabled={isAddingTestData}
+                      variant="outline"
+                      className="gap-2"
+                    >
+                      {isAddingTestData ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          Adding Test Data...
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="w-4 h-4" />
+                          Add Test Projects
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : projectRequests.map((request, index) => (
                   <div
                     key={index}
                     className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
@@ -2021,9 +2299,10 @@ export default function GovernmentDashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  // Optional: Redirect based on user role (but don't block access)
+  // Redirect users to their correct dashboard based on role
   useEffect(() => {
     if (!loading && user && user.role !== 'government') {
+      console.log(`Government dashboard: Redirecting ${user.role} user to their dashboard`);
       router.push(`/${user.role}`);
     }
   }, [user, loading, router]);

@@ -52,15 +52,93 @@ export default function NGODashboard() {
   const { toast } = useToast();
   const router = useRouter();
 
-  // Optional: Redirect based on user role (but don't block access)
+  // State for dynamic researcher-advised projects
+  const [researcherAdvisedProjects, setResearcherAdvisedProjects] = useState<any[]>([])
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true)
+
+  // Redirect users to their correct dashboard based on role
   useEffect(() => {
     if (!loading && user && user.role !== 'ngo') {
+      console.log(`NGO dashboard: Redirecting ${user.role} user to their dashboard`);
       router.push(`/${user.role}`);
     }
   }, [user, loading, router]);
 
-  // Project data for the researcher-advised projects
-  const researcherAdvisedProjects = [
+  // Fetch researcher-advised projects from database
+  const fetchResearcherAdvisedProjects = async () => {
+    try {
+      setIsLoadingProjects(true)
+
+      // Fetch from project proposals (researcher proposals) - no auth required
+      const response = await fetch('/api/project-proposals?limit=50')
+      const data = await response.json()
+
+      const dbProjects: any[] = []
+
+      if (data.success && data.proposals && data.proposals.length > 0) {
+        data.proposals.forEach((proposal: any) => {
+          // Only include proposals that have selected an NGO or are available for NGO selection
+          if (proposal.selectedNGO || !proposal.ngoId) {
+            dbProjects.push({
+              title: proposal.title,
+              researcher: proposal.researcherName ?
+                `${proposal.researcherName} - ${proposal.researcherEmail}` :
+                `Researcher - ${proposal.researcherEmail}`,
+              researcherEmail: proposal.researcherEmail,
+              researcherPhone: proposal.researcherPhone || '+91-XXXXXXXXXX', // Default for privacy
+              status: proposal.status === 'submitted' ? 'Planning' :
+                     proposal.status === 'approved' ? 'Active' :
+                     proposal.status === 'in_progress' ? 'Active' :
+                     proposal.status === 'ngo_submitted' ? 'Active' : 'Planning',
+              funding: proposal.fundingRequested || '₹0',
+              researcherCommission: proposal.researcherCommission || proposal.commission || '₹0',
+              commissionPercent: 4.0, // Default
+              volunteers: Math.floor(Math.random() * 100) + 20, // Random for demo
+              description: proposal.description,
+              timeline: proposal.duration || "24 months",
+              impact: proposal.expectedImpact || "Research-driven environmental impact",
+              startDate: "TBD",
+              endDate: "TBD",
+              progress: Math.floor(Math.random() * 80) + 10, // Random for demo
+              milestones: proposal.milestones?.length > 0 ? proposal.milestones : [
+                { name: "Research Planning", status: "Completed", date: "TBD" },
+                { name: "Implementation", status: "In Progress", date: "TBD" },
+                { name: "Data Collection", status: "Pending", date: "TBD" },
+                { name: "Analysis & Reporting", status: "Pending", date: "TBD" }
+              ],
+              categories: proposal.categories?.length > 0 ? proposal.categories : ["Environmental Research", proposal.sdgFocus],
+              location: proposal.location,
+              sdgGoals: proposal.sdgGoals?.length > 0 ? proposal.sdgGoals : [proposal.sdgFocus || "SDG 13: Climate Action"],
+              keyMetrics: proposal.keyMetrics || {
+                progress: `${Math.floor(Math.random() * 80) + 10}%`,
+                funding: proposal.fundingRequested || '₹0',
+                timeline: proposal.duration || "24 months",
+                impact: "Research-based impact"
+              }
+            })
+          }
+        })
+      }
+
+      // Merge with static data
+      setResearcherAdvisedProjects([...dbProjects, ...staticResearcherAdvisedProjects])
+
+    } catch (error) {
+      console.error('Error fetching researcher-advised projects:', error)
+      // Fallback to static data only
+      setResearcherAdvisedProjects(staticResearcherAdvisedProjects)
+    } finally {
+      setIsLoadingProjects(false)
+    }
+  }
+
+  useEffect(() => {
+    // Fetch data immediately (no auth required)
+    fetchResearcherAdvisedProjects()
+  }, []) // Removed user and loading dependencies
+
+  // Static project data for the researcher-advised projects
+  const staticResearcherAdvisedProjects = [
     {
       title: "Delhi-NCR Air Quality Monitoring Network",
       researcher: "Dr. Priya Sharma - IIT Delhi Environmental Science Department",
@@ -691,7 +769,11 @@ export default function NGODashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {researcherAdvisedProjects.map((project, index) => (
+                    {isLoadingProjects ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Loading researcher-advised projects...
+                      </div>
+                    ) : researcherAdvisedProjects.map((project, index) => (
                       <div key={index} className="border border-border/20 rounded-lg p-6 bg-muted/20 hover:bg-muted/30 transition-colors">
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex-1">
