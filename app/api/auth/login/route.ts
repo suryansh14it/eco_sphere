@@ -49,15 +49,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create session with encrypted data
-    const session = {
-      userId: user._id.toString(),
-      role: user.role,
-      timestamp: Date.now()
-    };
-
-    // Create response with user data
-    const response = NextResponse.json(
+    // Create response with user data (no session cookies)
+    return NextResponse.json(
       {
         message: 'Login successful',
         user: {
@@ -78,17 +71,6 @@ export async function POST(request: NextRequest) {
       },
       { status: 200 }
     );
-
-    // Store session data in an HTTP-only cookie
-    response.cookies.set('user_session', JSON.stringify(session), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-      path: '/'
-    });
-
-    return response;
 
   } catch (error: any) {
     console.error('Login error:', error);

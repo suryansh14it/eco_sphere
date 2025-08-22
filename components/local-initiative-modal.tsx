@@ -148,8 +148,9 @@ export function LocalInitiativeModal({
     
     // Validation for required fields
     const requiredFields = [
-      'title', 'description', 'projectFunding', 'location', 
-      'timeline', 'department', 'ngoCommission', 'proposalSummary'
+      'title', 'description', 'projectFunding', 'location',
+      'timeline', 'department', 'ngoCommission', 'proposalSummary',
+      'expectedStartDate', 'teamSize', 'experienceLevel'
     ]
 
     for (const field of requiredFields) {
@@ -219,42 +220,69 @@ export function LocalInitiativeModal({
         totalProjectCost: formData.projectFunding
       }
 
-      // For local initiatives, use the local-initiatives endpoint
-      const response = await fetch('/api/local-initiatives', {
+      // Use the new NGO local initiative endpoint
+      const response = await fetch('/api/ngo/local-initiative', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...proposalData,
-          // Additional local initiative specific fields
-          communityInvolvement: formData.proposalSummary, // Using existing field
-          sustainabilityPlan: formData.implementationPlan, // Using existing field
-          ngoProjectFund: formData.projectFunding,
+          // Basic project info
+          title: formData.title,
+          description: formData.description,
+          location: formData.location,
+          projectFunding: formData.projectFunding,
+          timeline: formData.timeline,
+
+          // NGO info
+          ngoId: userId,
+          ngoName: userName,
+          ngoEmail: userEmail,
+          ngoCommission: formData.ngoCommission,
+
+          // Government submission details
+          department: formData.department,
+          proposalSummary: formData.proposalSummary,
+
+          // Project details
+          expectedImpact: formData.expectedImpact,
+          implementationPlan: formData.implementationPlan,
+          expectedStartDate: formData.expectedStartDate,
+          teamSize: formData.teamSize,
+          experienceLevel: formData.experienceLevel,
+          additionalNotes: formData.additionalNotes,
+
+          // Categories and goals
+          categories: formData.categories,
+          sdgGoals: formData.sdgGoals,
+
+          // Key metrics
+          keyMetrics: formData.keyMetrics
         }),
       })
 
       const result = await response.json()
+      console.log('📋 API Response:', result);
 
-      if (response.ok) {
+      if (result.success) {
         setIsSubmitted(true)
         setShowSuccessAnimation(true)
-        
+
         // Show success toast
         toast({
           title: "🎉 Local Initiative Submitted Successfully!",
           description: `Your local initiative "${formData.title}" has been submitted to the government for review and funding approval.`,
           duration: 6000,
         })
-        
+
         // Close modal after animation
         setTimeout(() => {
           onClose()
           resetForm()
         }, 3000)
-        
+
       } else {
-        throw new Error(result.error || 'Failed to submit local initiative')
+        throw new Error(result.message || 'Failed to submit local initiative')
       }
 
     } catch (error) {

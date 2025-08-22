@@ -57,24 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   const fetchUser = async () => {
-    try {
-      const response = await fetch('/api/auth/profile', {
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-        return data.user;
-      } else {
-        setUser(null);
-        return null;
-      }
-    } catch (error) {
-      console.error('Error fetching user:', error);
-      setUser(null);
-      return null;
-    }
+    // For now, return null - no session-based auth
+    return null;
   };
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -84,19 +68,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
 
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
-        
+
+        // Store user in localStorage instead of session
+        localStorage.setItem('user', JSON.stringify(data.user));
+
         // Get redirect URL directly from the response
         if (data.redirectTo) {
           router.push(data.redirectTo);
         }
-        
+
         return true;
       } else {
         const errorData = await response.json();
@@ -115,19 +101,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify(userData),
       });
 
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
-        
+
+        // Store user in localStorage instead of session
+        localStorage.setItem('user', JSON.stringify(data.user));
+
         // Get redirect URL directly from the response
         if (data.redirectTo) {
           router.push(data.redirectTo);
         }
-        
+
         return true;
       } else {
         const errorData = await response.json();
@@ -141,15 +129,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async (): Promise<void> => {
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
+      // Clear localStorage
+      localStorage.removeItem('user');
       setUser(null);
       router.push('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
     }
   };
 
@@ -164,16 +149,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   };
 
-  // Only check for existing auth when app starts, but don't show errors
+  // Check for existing auth when app starts
   useEffect(() => {
-    const checkAuth = async () => {
-      const hasSession = document.cookie.includes('user_session');
-      if (hasSession) {
-        await fetchUser();
+    const checkAuth = () => {
+      try {
+        // Check localStorage for user data
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          console.log('User found in localStorage:', userData.role);
+          setUser(userData);
+        } else {
+          console.log('No user found in localStorage');
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+        localStorage.removeItem('user');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
-    
+
     checkAuth();
   }, []);
 

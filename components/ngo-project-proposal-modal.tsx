@@ -230,42 +230,70 @@ export function NGOProjectProposalModal({
         totalProjectCost: projectData.funding
       }
 
-      // Since this is a researcher-advised proposal, use the researcher-proposals endpoint
-      const response = await fetch('/api/researcher-proposals', {
+      // Use the new NGO researcher proposal endpoint
+      const response = await fetch('/api/ngo/researcher-proposal', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...proposalData,
-          // Additional researcher-specific fields
+          // Basic project info
+          title: projectData.title,
+          description: projectData.description,
+          location: projectData.location,
+          funding: projectData.funding,
+          timeline: formData.duration || projectData.timeline,
+
+          // Researcher info
           researcherName: projectData.researcher,
           researcherEmail: projectData.researcherEmail,
           researcherPhone: projectData.researcherPhone,
           researcherCommission: projectData.researcherCommission,
+
+          // NGO info
+          ngoId: userId,
+          ngoName: userName,
+          ngoEmail: userEmail,
+          ngoCommission: formData.ngoCommission,
+
+          // Government submission details
+          department: formData.department,
+          proposalSummary: formData.proposalSummary,
+
+          // Optional fields
+          expectedStartDate: formData.expectedStartDate,
+          teamSize: formData.teamSize,
+          experienceLevel: formData.experienceLevel,
+          proposedBudgetBreakdown: formData.proposedBudgetBreakdown,
+          additionalNotes: formData.additionalNotes,
+
+          // Categories and goals
+          categories: projectData.categories || [],
+          sdgGoals: projectData.sdgGoals || []
         }),
       })
 
       const result = await response.json()
+      console.log('📋 API Response:', result);
 
-      if (response.ok) {
+      if (result.success) {
         setIsSubmitted(true)
         setShowSuccessAnimation(true)
-        
+
         // Show success toast
         toast({
           title: "🎉 Proposal Submitted Successfully!",
           description: `Your proposal for "${projectData.title}" has been submitted to the government for review and funding approval.`,
           duration: 6000,
         })
-        
+
         // Close modal after animation
         setTimeout(() => {
           onClose()
         }, 3000)
-        
+
       } else {
-        throw new Error(result.error || 'Failed to submit proposal')
+        throw new Error(result.message || 'Failed to submit proposal')
       }
 
     } catch (error) {

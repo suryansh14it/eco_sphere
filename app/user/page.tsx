@@ -293,11 +293,9 @@ export default function UserDashboard() {
   // Get the current language object
   const currentLanguage = languageOptions.find(l => l.code === language) || languageOptions[0]
   
-  // Redirect to login if not authenticated
+  // Optional: Redirect based on user role (but don't block access)
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    } else if (!loading && user && user.role !== 'user') {
+    if (!loading && user && user.role !== 'user') {
       router.push(`/${user.role}`);
     }
   }, [user, loading, router]);
@@ -315,8 +313,8 @@ export default function UserDashboard() {
     setShowIssueXP(false);
   };
 
-  // If still loading or not authenticated, show loading
-  if (loading || !user) {
+  // Show loading only while auth provider is loading
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-green-50 to-lime-50">
         <div className="text-center">

@@ -107,14 +107,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create session
-    const session = {
-      userId: user._id.toString(),
-      role: user.role
-    };
-
-    // Create response
-    const response = NextResponse.json(
+    // Create response (no session cookies)
+    return NextResponse.json(
       {
         message: 'User created successfully',
         user: {
@@ -128,16 +122,6 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-
-    // Store session data in a cookie
-    response.cookies.set('user_session', JSON.stringify(session), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 // 7 days
-    });
-
-    return response;
 
   } catch (error: any) {
     console.error('Signup error:', error);

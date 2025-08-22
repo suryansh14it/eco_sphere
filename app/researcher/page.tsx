@@ -475,17 +475,15 @@ export default function ResearcherDashboard() {
     ]
   };
 
-  // Redirect to login if not authenticated
+  // Optional: Redirect based on user role (but don't block access)
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    } else if (!loading && user && user.role !== 'researcher') {
+    if (!loading && user && user.role !== 'researcher') {
       router.push(`/${user.role}`);
     }
   }, [user, loading, router]);
 
-  // If still loading or not authenticated, show loading
-  if (loading || !user) {
+  // Show loading only while auth provider is loading
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-teal-50 to-emerald-50">
         <div className="text-center">
