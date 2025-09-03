@@ -1,38 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserById } from '@/lib/auth';
+import { cookies } from 'next/headers';
+import connectDB from '@/lib/mongodb';
 
 // GET /api/user/dashboard-data
-// Returns minimal progress/xp data for the user (no authentication required for now)
+// Returns progress/xp data for the authenticated user
 export async function GET(request: NextRequest) {
-	try {
-		// For now, return mock data since we removed session authentication
-		const mockUser = {
-			level: 1,
-			xpPoints: 0,
-			environmentalImpact: { treesPlanted: 0, co2Offset: 0, waterSaved: 0 },
-			activityHistory: []
-		};
+       try {
+	       // Get email from query params
+	       const { searchParams } = new URL(request.url);
+	       const email = searchParams.get('email');
+	       if (!email) {
+		       return NextResponse.json({ error: 'Missing email parameter' }, { status: 400 });
+	       }
 
-		// Compute next level threshold based on the leveling formula in models/User.ts
-		const level = mockUser.level || 1;
-		const totalXp = mockUser.xpPoints || 0;
-		const xpForNextLevel = Math.pow(level, 2) * 10; // threshold to reach the next level
-		const xpToNextLevel = Math.max(0, xpForNextLevel - totalXp);
+	       await connectDB();
+	       // Import User model dynamically to avoid Next.js import issues
+	       const User = (await import('@/models/User')).default;
+	       const user = await User.findOne({ email: email.toLowerCase() });
+	       if (!user) {
+		       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+	       }
 
-		return NextResponse.json({
-			success: true,
-			data: {
-				totalXp,
-				level,
-				xpForNextLevel,
-				xpToNextLevel,
-				environmentalImpact: mockUser.environmentalImpact || { treesPlanted: 0, co2Offset: 0, waterSaved: 0 },
-				recentActivity: (mockUser.activityHistory || []).slice(0, 10),
-			},
-		});
-	} catch (error) {
-		console.error('dashboard-data fetch error:', error);
-		return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-	}
+	       // Compute next level threshold based on the leveling formula in models/User.ts
+	       const level = user.level || 1;
+	       const totalXp = user.xpPoints || 0;
+	       const xpForNextLevel = Math.pow(level, 2) * 10;
+	       const xpToNextLevel = Math.max(0, xpForNextLevel - totalXp);
+
+	       return NextResponse.json({
+		       success: true,
+		       data: {
+			       totalXp,
+			       level,
+			       xpForNextLevel,
+			       xpToNextLevel,
+			       environmentalImpact: user.environmentalImpact || { treesPlanted: 0, co2Offset: 0, waterSaved: 0 },
+			       recentActivity: (user.activityHistory || []).slice(0, 10),
+		       },
+	       });
+       } catch (error) {
+	       console.error('dashboard-data fetch error:', error);
+	       return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+       }
 }
 

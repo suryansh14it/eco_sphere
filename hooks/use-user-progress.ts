@@ -53,10 +53,16 @@ export function useUserProgress() {
 
   // Fetch minimal dashboard progress from backend route
   const refreshProgress = async () => {
-    if (!authUser) return;
+    if (!authUser || !authUser.email) return;
     try {
-      const res = await fetch('/api/user/dashboard-data', { credentials: 'include' });
+      const res = await fetch(`/api/user/dashboard-data?email=${encodeURIComponent(authUser.email)}`, { 
+        credentials: 'include',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      });
       if (!res.ok) {
+        console.error('Dashboard data fetch failed:', await res.text());
         setDashboardData(null);
         return;
       }

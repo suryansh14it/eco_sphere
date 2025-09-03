@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 // Attendance record for a contributor at a project site
 export interface IAttendanceRecord extends Document {
-  projectId: mongoose.Types.ObjectId;
+  projectName: string;
   contributorId: string;
   contributorName: string;
   date: Date;
@@ -35,7 +35,7 @@ export interface IAttendanceRecord extends Document {
 
 // Daily contribution record for each contributor
 export interface IDailyContribution extends Document {
-  projectId: mongoose.Types.ObjectId;
+  projectName: string;
   contributorId: string;
   contributorName: string;
   date: Date;
@@ -50,10 +50,9 @@ export interface IDailyContribution extends Document {
 
 const attendanceSchema = new Schema<IAttendanceRecord>(
   {
-    projectId: {
-      type: Schema.Types.ObjectId,
-      required: true,
-      ref: 'Project'
+    projectName: {
+      type: String,
+      required: true
     },
     contributorId: {
       type: String,
@@ -123,10 +122,9 @@ const attendanceSchema = new Schema<IAttendanceRecord>(
 
 const contributionSchema = new Schema<IDailyContribution>(
   {
-    projectId: {
-      type: Schema.Types.ObjectId,
-      required: true,
-      ref: 'Project'
+    projectName: {
+      type: String,
+      required: true
     },
     contributorId: {
       type: String,
@@ -174,8 +172,14 @@ const contributionSchema = new Schema<IDailyContribution>(
   { timestamps: true }
 );
 
-export const AttendanceRecord = mongoose.models.AttendanceRecord || 
-  mongoose.model<IAttendanceRecord>('AttendanceRecord', attendanceSchema);
+// Delete existing models if they exist to force recreation
+if (mongoose.models.AttendanceRecord) {
+  delete mongoose.models.AttendanceRecord;
+}
+if (mongoose.models.DailyContribution) {
+  delete mongoose.models.DailyContribution;
+}
 
-export const DailyContribution = mongoose.models.DailyContribution ||
-  mongoose.model<IDailyContribution>('DailyContribution', contributionSchema);
+export const AttendanceRecord = mongoose.model<IAttendanceRecord>('AttendanceRecord', attendanceSchema);
+
+export const DailyContribution = mongoose.model<IDailyContribution>('DailyContribution', contributionSchema);

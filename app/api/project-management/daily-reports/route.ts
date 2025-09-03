@@ -6,17 +6,17 @@ import { Types } from 'mongoose';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { projectId, report } = body;
+    const { projectName, report } = body;
     
-    if (!projectId || !report) {
-      return NextResponse.json({ error: 'Project ID and report data are required' }, { status: 400 });
+    if (!projectName || !report) {
+      return NextResponse.json({ error: 'Project name and report data are required' }, { status: 400 });
     }
 
     await dbConnect();
     
-    // Update the project with new daily report
-    const updatedProject = await ProjectManagement.findOneAndUpdate(
-      { projectId: new Types.ObjectId(projectId) },
+    // Try to update the project with new daily report
+    let updatedProject = await ProjectManagement.findOneAndUpdate(
+      { projectName: projectName },
       { 
         $push: { dailyReports: report },
         $inc: { 'cumulativeStats.completedDays': 1 }
@@ -24,28 +24,41 @@ export async function POST(req: NextRequest) {
       { new: true }
     );
     
+    // If project doesn't exist, create a basic one
     if (!updatedProject) {
-      return NextResponse.json({ error: 'Project management data not found' }, { status: 404 });
+      updatedProject = await ProjectManagement.create({
+        projectName: projectName,
+        dailyReports: [report],
+        cumulativeStats: {
+          completedDays: 1,
+          fundingUtilized: 0,
+          totalDays: 1,
+          averageDailyProgress: 100
+        }
+      });
     }
     
-    // Calculate total days from start date to now
-    const startDate = new Date(updatedProject.startDate);
-    const today = new Date();
-    const daysDiff = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    // Calculate total days from start date to now (if startDate exists)
+    let totalDays = 1;
+    let averageDailyProgress = 100;
     
-    // Update total days and calculate average daily progress
-    const totalDays = Math.max(1, daysDiff);
-    const completedDays = updatedProject.cumulativeStats.completedDays;
-    const averageDailyProgress = (completedDays / totalDays) * 100;
+    if (updatedProject.startDate) {
+      const startDate = new Date(updatedProject.startDate);
+      const today = new Date();
+      const daysDiff = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      totalDays = Math.max(1, daysDiff);
+      const completedDays = updatedProject.cumulativeStats?.completedDays || 1;
+      averageDailyProgress = (completedDays / totalDays) * 100;
+    }
     
     // Update funding utilized
-    const totalFundingUtilized = report.fundingUtilization.reduce(
-      (total: number, item: any) => total + item.amountSpent, 
-      updatedProject.cumulativeStats.fundingUtilized || 0
-    );
+    const totalFundingUtilized = report.fundingUtilization?.reduce(
+      (total: number, item: any) => total + (item.amountSpent || 0), 
+      updatedProject.cumulativeStats?.fundingUtilized || 0
+    ) || 0;
     
     await ProjectManagement.updateOne(
-      { projectId: new Types.ObjectId(projectId) },
+      { projectName: projectName },
       { 
         $set: { 
           'cumulativeStats.totalDays': totalDays,
@@ -65,20 +78,20 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
-    const projectId = url.searchParams.get('projectId');
+    const projectName = url.searchParams.get('projectName');
     const date = url.searchParams.get('date'); // Optional date filter
     const reportId = url.searchParams.get('reportId'); // Optional specific report ID
     
-    if (!projectId) {
-      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
+    if (!projectName) {
+      return NextResponse.json({ error: 'Project name is required' }, { status: 400 });
     }
 
     await dbConnect();
     
-    const project = await ProjectManagement.findOne({ projectId: new Types.ObjectId(projectId) });
+    const project = await ProjectManagement.findOne({ projectName: projectName });
     
     if (!project) {
-      return NextResponse.json({ error: 'Project management data not found' }, { status: 404 });
+      return NextResponse.json([]); // Return empty array if project not found
     }
     
     // If a specific report ID is requested

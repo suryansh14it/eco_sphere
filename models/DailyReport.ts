@@ -1,7 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IDailyReport extends Document {
-  projectId: mongoose.Types.ObjectId;
   projectName: string;
   date: Date;
   reportedBy: string;
@@ -61,11 +60,6 @@ export interface IDailyReport extends Document {
 
 const dailyReportSchema = new Schema<IDailyReport>(
   {
-    projectId: {
-      type: Schema.Types.ObjectId,
-      required: true,
-      ref: 'Project'
-    },
     projectName: {
       type: String,
       required: true
@@ -196,5 +190,9 @@ const dailyReportSchema = new Schema<IDailyReport>(
   { timestamps: true }
 );
 
-export const DailyReport = mongoose.models.DailyReport || 
-  mongoose.model<IDailyReport>('DailyReport', dailyReportSchema);
+// Delete existing model if it exists to force recreation
+if (mongoose.models.DailyReport) {
+  delete mongoose.models.DailyReport;
+}
+
+export const DailyReport = mongoose.model<IDailyReport>('DailyReport', dailyReportSchema);

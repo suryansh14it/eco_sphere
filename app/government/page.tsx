@@ -14,6 +14,7 @@ import { AIAnalysisModal } from "@/components/ai-analysis-modal"
 import { GovRequestDetailsModal, type GovNewRequestDetail } from "@/components/government/request-details-modal"
 import { GovOngoingDetailsModal, type GovOngoingDetail } from "@/components/government/ongoing-details-modal"
 import { GovCompletedDetailsModal, type GovCompletedDetail } from "@/components/government/completed-details-modal"
+import DailyReportsOverview from "@/components/government/daily-reports-overview"
 import {
   Search,
   Bell,
@@ -1912,6 +1913,9 @@ export default function GovernmentDashboard() {
           </Card>
         )
 
+      case "daily-reports":
+        return <DailyReportsOverview />;
+
       case "completed":
         return (
           <Card className="glass h-[calc(100vh-120px)]">
@@ -2456,6 +2460,18 @@ export default function GovernmentDashboard() {
               <div className="flex items-center">
                 <CheckCircle className="w-4 h-4 mr-3" />
                 <span>Completed</span>
+              </div>
+            </Button>
+            <Button
+              variant={activeSection === "daily-reports" ? "default" : "ghost"}
+              className={`w-full justify-between items-center ${
+                activeSection === "daily-reports" ? "bg-primary text-primary-foreground" : ""
+              }`}
+              onClick={() => handleSidebarClick("daily-reports")}
+            >
+              <div className="flex items-center">
+                <FileText className="w-4 h-4 mr-3" />
+                <span>Daily Reports</span>
               </div>
             </Button>
             <Button

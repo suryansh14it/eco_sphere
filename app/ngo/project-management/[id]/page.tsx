@@ -264,6 +264,26 @@ export default function ProjectManagementPage() {
   const [newMaterial, setNewMaterial] = useState({ name: "", quantity: 0, unit: "" })
   const [newFunding, setNewFunding] = useState({ amountSpent: 0, description: "" })
 
+  // Fetch daily reports for this project
+  const fetchDailyReports = async () => {
+    try {
+      const response = await fetch(`/api/project-management/daily-reports?projectName=${encodeURIComponent(project.name)}`);
+      if (response.ok) {
+        const reports = await response.json();
+        setProject(prev => ({
+          ...prev,
+          dailyReports: reports.map((report: any) => ({
+            ...report,
+            id: report._id || report.id,
+            date: new Date(report.date)
+          }))
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching daily reports:', error);
+    }
+  };
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!loading && !user) {
@@ -278,6 +298,8 @@ export default function ProjectManagementPage() {
     
     const timer = setTimeout(() => {
       setIsLoading(false);
+      // Fetch daily reports after loading
+      fetchDailyReports();
     }, 1000);
 
     return () => clearTimeout(timer);
@@ -530,22 +552,20 @@ export default function ProjectManagementPage() {
         fundingUtilization: reportForm.fundingUtilization
       };
       
-      // In a real app, make an API call to save the report
-      // const projectId = params?.id?.toString();
-      // const response = await fetch('/api/project-management/daily-reports', {
-      //   method: 'POST',
-      //   body: JSON.stringify({ projectId, report: reportData }),
-      //   headers: { 'Content-Type': 'application/json' }
-      // });
+      // Make API call to save the report
+      const response = await fetch('/api/project-management/daily-reports/submit', {
+        method: 'POST',
+        body: JSON.stringify({ projectName: project.name, report: reportData }),
+        headers: { 'Content-Type': 'application/json' }
+      });
       
-      // Simulate successful API call
-      setTimeout(() => {
-        // Add to project state
-        setProject(prev => ({
-          ...prev,
-          dailyReports: [...prev.dailyReports, { ...reportData, id: `dr${prev.dailyReports.length + 1}` }]
-        }));
-        
+      if (!response.ok) {
+        throw new Error('Failed to submit report');
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
         // Reset form
         setReportForm({
           progressSummary: "",
@@ -561,13 +581,18 @@ export default function ProjectManagementPage() {
         setNewMaterial({ name: "", quantity: 0, unit: "" });
         setNewFunding({ amountSpent: 0, description: "" });
         
+        // Refresh daily reports from database
+        await fetchDailyReports();
+        
         toast({
           title: "Report Submitted",
           description: "The daily report has been submitted successfully."
         });
-        
-        setIsSubmitting(false);
-      }, 2000);
+      } else {
+        throw new Error(result.error || 'Failed to submit report');
+      }
+      
+      setIsSubmitting(false);
     } catch (error) {
       console.error("Error submitting report:", error);
       toast({
