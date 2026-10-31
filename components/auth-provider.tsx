@@ -58,7 +58,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUser = async () => {
     try {
-      // Check localStorage for user data first
+      // Prefer the signed server session so role, XP and profile data stay
+      // accurate after actions like reporting an issue.
+      const response = await fetch('/api/auth/profile', { cache: 'no-store' });
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.user) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+          return data.user;
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching session user:', error);
+    }
+
+    try {
+      // Fall back to the cached user for browsers that only have localStorage
+      // state from before sessions were cookie-based.
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         const userData = JSON.parse(storedUser);
@@ -141,7 +157,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async (): Promise<void> => {
     try {
-      // Clear localStorage
+      // Clear the server session cookie as well as local state.
+      await fetch('/api/auth/logout', { method: 'POST' }).catch(() => null);
       localStorage.removeItem('user');
       setUser(null);
       router.push('/login');

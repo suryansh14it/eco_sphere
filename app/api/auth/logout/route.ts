@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { clearSessionCookie } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,16 +8,7 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
-    // Clear the session cookie
-    response.cookies.set('user_session', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 0 // Immediately expire
-    });
-
-    return response;
-
+    return clearSessionCookie(response);
   } catch (error: any) {
     console.error('Logout error:', error);
     return NextResponse.json(

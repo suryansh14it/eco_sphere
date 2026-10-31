@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { emailExists, createUser } from '@/lib/auth';
+import { setSessionCookie } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
   try {
@@ -85,10 +86,6 @@ export async function POST(request: NextRequest) {
       userData.department = department;
       userData.position = position;
       userData.governmentId = governmentId;
-    } else if (role === 'researcher') {
-      userData.institution = institution;
-      userData.researchArea = researchArea;
-      userData.academicCredentials = academicCredentials;
     } else if (role === 'user') {
       userData.location = location;
       userData.interests = interests || [];
@@ -107,8 +104,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create response (no session cookies)
-    return NextResponse.json(
+    // Create response and set a signed session cookie
+    const response = NextResponse.json(
       {
         message: 'User created successfully',
         user: {
@@ -122,6 +119,8 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
+
+    return setSessionCookie(response, user);
 
   } catch (error: any) {
     console.error('Signup error:', error);
@@ -137,11 +136,6 @@ function validateRoleFields(role: string, body: any) {
     case 'government':
       if (!body.department || !body.position || !body.governmentId) {
         return { error: 'Department, position, and government ID are required for government officials' };
-      }
-      break;
-    case 'researcher':
-      if (!body.institution || !body.researchArea || !body.academicCredentials) {
-        return { error: 'Institution, research area, and academic credentials are required for researchers' };
       }
       break;
     case 'user':

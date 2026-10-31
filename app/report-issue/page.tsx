@@ -67,6 +67,8 @@ export default function ReportIssuePage() {
   const [locationData, setLocationData] = useState<LocationData | null>(null)
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   const [showResults, setShowResults] = useState(false)
+  const [issueId, setIssueId] = useState<string | null>(null)
+  const [wasDuplicate, setWasDuplicate] = useState(false)
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -150,7 +152,6 @@ export default function ReportIssuePage() {
     
     try {
       const formData = new FormData();
-      formData.append('userId', user.id);
       formData.append('title', issueTitle);
       formData.append('description', issueDescription);
       formData.append('category', issueCategory);
@@ -166,7 +167,7 @@ export default function ReportIssuePage() {
         formData.append('images', file);
       });
       
-      const response = await fetch('/api/environmental-issue/submit', {
+      const response = await fetch('/api/issues', {
         method: 'POST',
         body: formData
       });
@@ -174,12 +175,21 @@ export default function ReportIssuePage() {
       const result = await response.json();
       
       if (result.success) {
-        setValidationResult(result.validation);
+        const validation = result.validation || {};
+        setValidationResult({
+          ...validation,
+          environmentalImpact: {
+            type: validation.impactType || 'Environmental impact',
+            description: validation.impactDescription || '',
+          },
+        });
+        setIssueId(result.issueId || null);
+        setWasDuplicate(Boolean(result.duplicate));
         setShowResults(true);
         
         toast({
-          title: "Report Submitted!",
-          description: `You earned ${result.xpAwarded} XP for your report`,
+          title: result.duplicate ? "Added to an existing report" : "Report submitted!",
+          description: result.message || `You earned ${result.xpAwarded} XP for your report`,
           variant: "default"
         });
 
@@ -212,6 +222,8 @@ export default function ReportIssuePage() {
     setLocationData(null);
     setValidationResult(null);
     setShowResults(false);
+    setIssueId(null);
+    setWasDuplicate(false);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -224,6 +236,9 @@ export default function ReportIssuePage() {
     { id: "waste", label: "Illegal Dumping", icon: Trash2, color: "text-red-600" },
     { id: "deforestation", label: "Deforestation", icon: TreePine, color: "text-green-600" },
     { id: "industrial", label: "Industrial Damage", icon: Factory, color: "text-gray-600" },
+    { id: "water", label: "Water Bodies", icon: Droplets, color: "text-cyan-600" },
+    { id: "wildlife", label: "Wildlife", icon: TreePine, color: "text-emerald-600" },
+    { id: "other", label: "Other Issue", icon: AlertTriangle, color: "text-amber-600" },
   ]
 
   return (
@@ -485,22 +500,37 @@ export default function ReportIssuePage() {
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="w-5 h-5 text-blue-600" />
                       <span className="font-medium text-blue-800">
-                        This issue has been flagged for researcher attention
+                        This report has been escalated for urgent attention
                       </span>
                     </div>
                   </div>
                 )}
+
+                {wasDuplicate && (
+                  <div className="bg-amber-50 border border-amber-300 rounded p-3 text-sm text-amber-800">
+                    Someone already reported this nearby, so your report was added as a
+                    confirmation instead of creating a duplicate.
+                  </div>
+                )}
                 
-                <div className="flex gap-3 mt-4">
+                <div className="flex flex-col gap-3 mt-4 sm:flex-row">
+                  {issueId && (
+                    <Link href={`/issues/${issueId}`} className="flex-1">
+                      <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+                        View on the public board
+                      </Button>
+                    </Link>
+                  )}
                   <Button 
                     onClick={resetForm}
-                    className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
+                    variant={issueId ? "outline" : "default"}
+                    className={issueId ? "flex-1" : "flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"}
                   >
                     Report Another Issue
                   </Button>
-                  <Link href="/user" className="flex-1">
+                  <Link href="/issues" className="flex-1">
                     <Button variant="outline" className="w-full bg-transparent">
-                      Back to Dashboard
+                      Browse all issues
                     </Button>
                   </Link>
                 </div>
@@ -515,8 +545,9 @@ export default function ReportIssuePage() {
                   <li>• Be as specific as possible with location details</li>
                   <li>• Include photos if safe to do so</li>
                   <li>• Report urgent issues to local authorities immediately</li>
-                  <li>• Your report will be reviewed using AI validation</li>
-                  <li>• High-quality reports earn more XP (10-50 points)</li>
+                  <li>• Your report is published on the public issue board</li>
+                  <li>• Reports are checked automatically and verified by the community</li>
+                  <li>• High-quality reports earn more XP (10-40 points)</li>
                 </ul>
               </div>
             )}

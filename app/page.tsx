@@ -163,6 +163,12 @@ export default function LandingPage() {
                 Impact
               </a>
               <a
+                href="/issues"
+                className="text-stone-700 hover:text-green-600 transition-all duration-200 hover:scale-105 font-medium"
+              >
+                Issues
+              </a>
+              <a
                 href="#features"
                 className="text-stone-700 hover:text-green-600 transition-all duration-200 hover:scale-105 font-medium"
               >
@@ -212,7 +218,7 @@ export default function LandingPage() {
                   <span className="gradient-text"> Future</span>
                 </h1>
                 <p className="text-lg lg:text-xl text-stone-700 mb-8 max-w-2xl leading-relaxed">
-                  Empowering governments, researchers, communities, and NGOs to collaborate on environmental solutions
+                  Empowering governments, communities, and NGOs to collaborate on environmental solutions
                   through data-driven insights and unified action.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -382,10 +388,10 @@ export default function LandingPage() {
                 <Users className="w-6 h-6 text-teal-600" />
               </div>
               <h3 className="font-semibold text-lg text-stone-800 mb-2 group-hover:text-teal-600 transition-colors duration-300">
-                Research Hub
+                Public Issue Board
               </h3>
               <p className="text-stone-600 mb-4 text-sm">
-                Data analysis tools, research collaboration, and scientific publication sharing platform.
+                Citizens report environmental problems, the community verifies them, and everyone can see who is fixing them.
               </p>
               <Button
                 variant="outline"
@@ -393,7 +399,7 @@ export default function LandingPage() {
                 className="w-full border-teal-200 hover:bg-teal-50 hover:border-teal-300 transition-all duration-300 bg-transparent text-teal-600"
                 asChild
               >
-                <a href="/signup">View Research Tools</a>
+                <a href="/issues">Browse Issues</a>
               </Button>
             </Card>
 
@@ -447,7 +453,7 @@ export default function LandingPage() {
             <div className="max-w-4xl mx-auto">
               <Card className="glass p-8 lg:p-12 hover-lift">
                 <p className="text-lg text-stone-600 leading-relaxed">
-                  EcoSphere is a collaborative digital platform designed to unite governments, NGOs, researchers,
+                  EcoSphere is a collaborative digital platform designed to unite governments, NGOs,
                   communities, and students in driving climate action, marine conservation, and biodiversity protection.
                   The app enables real-time data sharing, project collaboration, and citizen engagement through
                   interactive dashboards, crowdsourced reporting, and educational resources. With tools for tracking

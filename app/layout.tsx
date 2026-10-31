@@ -16,7 +16,7 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   title: "EcoSphere - Environmental Collaboration Platform",
-  description: "Multi-dashboard platform connecting governments, researchers, users, and NGOs for environmental action",
+  description: "Report environmental issues, track them publicly, and connect communities, NGOs, and government to fix them",
   generator: "v0.app",
 }
 

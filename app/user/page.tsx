@@ -831,6 +831,12 @@ export default function UserDashboard() {
               <FileText className="w-4 h-4 mr-3" />
               {t.reportIssue}
             </Button>
+            <Link href="/issues">
+              <Button variant="ghost" className="w-full justify-start hover:bg-emerald-50">
+                <Users className="w-4 h-4 mr-3" />
+                Public Issue Board
+              </Button>
+            </Link>
             <Button
               variant={activeSection === "community-leaderboard" ? "default" : "ghost"}
               className={`w-full justify-start ${

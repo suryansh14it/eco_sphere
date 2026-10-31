@@ -50,14 +50,6 @@ export default function LoginPage() {
       route: "/government",
     },
     {
-      id: "researcher",
-      name: "Researcher",
-      icon: BarChart3,
-      color: "from-teal-500 to-emerald-500",
-      description: "Data analysis & insights",
-      route: "/researcher",
-    },
-    {
       id: "user",
       name: "Community Member",
       icon: TreePine,

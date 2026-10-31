@@ -38,6 +38,7 @@ import {
   Building
 } from "lucide-react"
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { NGOProjectProposalModal } from "@/components/ngo-project-proposal-modal"
 import { useToast } from "@/hooks/use-toast"
 
@@ -407,6 +408,12 @@ export default function NGODashboard() {
               <Home className="w-4 h-4 mr-2" />
               Dashboard
             </Button>
+            <Link href="/ngo/issues">
+              <Button variant="ghost" className="w-full justify-start hover:bg-purple-50">
+                <Users className="w-4 h-4 mr-2" />
+                Community Issues
+              </Button>
+            </Link>
             <Button
               variant={activeSection === "researcher-projects" ? "default" : "ghost"}
               className={`w-full justify-start ${

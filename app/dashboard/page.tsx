@@ -24,18 +24,18 @@ export default function DashboardSelection() {
       route: "/government",
     },
     {
-      id: "researcher",
-      name: "Research Hub",
-      icon: BarChart3,
+      id: "issues",
+      name: "Public Issue Board",
+      icon: Leaf,
       color: "from-teal-500 to-emerald-500",
-      description: "Collaborate on Indian environmental research, access datasets (ISRO, CPCB, IMD), and generate SDG insights",
+      description: "Report and track environmental problems with the community, NGOs, and government",
       features: [
-        "SDG analytics for India (NITI Aayog, UN SDG India Index)",
-        "Visualize air, water, and biodiversity data (IITs, IISc, NEERI)",
-        "Research collaboration with Indian institutes",
-        "Publish impact reports for Indian states/districts"
+        "Report an issue with photos and GPS location",
+        "Confirm issues reported by neighbours",
+        "See who is handling each issue and when",
+        "Follow an issue from report to resolution"
       ],
-      route: "/researcher",
+      route: "/issues",
     },
     {
       id: "user",

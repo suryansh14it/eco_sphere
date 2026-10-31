@@ -52,14 +52,6 @@ export default function SignupPage() {
       fields: ["Department", "Position", "Government ID"],
     },
     {
-      id: "researcher",
-      name: "Researcher",
-      icon: BarChart3,
-      color: "from-teal-500 to-emerald-500",
-      description: "Data analysis & insights",
-      fields: ["Institution", "Research Area", "Academic Credentials"],
-    },
-    {
       id: "user",
       name: "Community Member",
       icon: TreePine,
@@ -99,10 +91,6 @@ export default function SignupPage() {
       toast.error("Please fill in all government official fields");
       isValid = false;
     }
-    if (selectedRole === 'researcher' && (!institution || !researchArea || !academicCredentials)) {
-      toast.error("Please fill in all researcher fields");
-      isValid = false;
-    }
     if (selectedRole === 'user' && !location) {
       toast.error("Please fill in your location");
       isValid = false;
@@ -126,7 +114,6 @@ export default function SignupPage() {
         bio,
         // Role-specific fields
         ...(selectedRole === 'government' && { department, position, governmentId }),
-        ...(selectedRole === 'researcher' && { institution, researchArea, academicCredentials }),
         ...(selectedRole === 'user' && { location, interests: interests.split(',').map(i => i.trim()).filter(Boolean) }),
         ...(selectedRole === 'ngo' && { organizationName, registrationNumber, focusAreas: focusAreas.split(',').map(f => f.trim()).filter(Boolean) })
       };
@@ -299,43 +286,6 @@ export default function SignupPage() {
                           className="glass border-border/30"
                           value={governmentId}
                           onChange={(e) => setGovernmentId(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedRole === "researcher" && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">Institution</label>
-                        <Input 
-                          placeholder="University or research institution" 
-                          className="glass border-border/30"
-                          value={institution}
-                          onChange={(e) => setInstitution(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">Research Area</label>
-                        <Select value={researchArea} onValueChange={setResearchArea}>
-                          <SelectTrigger className="glass border-border/30">
-                            <SelectValue placeholder="Select research focus" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="climate">Climate Science</SelectItem>
-                            <SelectItem value="marine">Marine Biology</SelectItem>
-                            <SelectItem value="ecology">Ecology & Conservation</SelectItem>
-                            <SelectItem value="environmental">Environmental Engineering</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">Academic Credentials</label>
-                        <Input 
-                          placeholder="Your academic credentials" 
-                          className="glass border-border/30"
-                          value={academicCredentials}
-                          onChange={(e) => setAcademicCredentials(e.target.value)}
                         />
                       </div>
                     </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateUser } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
+import { setSessionCookie } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,8 +50,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create response with user data (no session cookies)
-    return NextResponse.json(
+    // Create a signed, httpOnly session so APIs can identify the caller
+    // without trusting a userId sent from the browser.
+    const response = NextResponse.json(
       {
         message: 'Login successful',
         user: {
@@ -71,6 +73,8 @@ export async function POST(request: NextRequest) {
       },
       { status: 200 }
     );
+
+    return setSessionCookie(response, user);
 
   } catch (error: any) {
     console.error('Login error:', error);

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -2376,6 +2377,14 @@ export default function GovernmentDashboard() {
                 <span>Dashboard</span>
               </div>
             </Button>
+            <Link href="/government/issues">
+              <Button variant="ghost" className="w-full justify-start items-center">
+                <div className="flex items-center">
+                  <FileText className="w-4 h-4 mr-3" />
+                  <span>Citizen Reports</span>
+                </div>
+              </Button>
+            </Link>
             <Button
               variant={activeSection === "new-requests" ? "default" : "ghost"}
               className={`w-full justify-between items-center ${

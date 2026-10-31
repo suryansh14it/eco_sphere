@@ -1,36 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserById } from '@/lib/auth';
+import { getSessionUser } from '@/lib/session';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get session cookie
-    const sessionCookie = request.cookies.get('user_session')?.value;
-    
-    if (!sessionCookie) {
+    const user = await getSessionUser(request);
+
+    if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
-      );
-    }
-    
-    // Parse session data
-    let session;
-    try {
-      session = JSON.parse(sessionCookie);
-    } catch (e) {
-      return NextResponse.json(
-        { error: 'Invalid session' },
-        { status: 401 }
-      );
-    }
-    
-    // Get user from session
-    const user = await getUserById(session.userId);
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
       );
     }
 
@@ -53,11 +31,6 @@ export async function GET(request: NextRequest) {
           department: user.department,
           position: user.position,
           governmentId: user.governmentId
-        }),
-        ...(user.role === 'researcher' && {
-          institution: user.institution,
-          researchArea: user.researchArea,
-          academicCredentials: user.academicCredentials
         }),
         ...(user.role === 'user' && {
           location: user.location,
