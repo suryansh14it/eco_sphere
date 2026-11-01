@@ -312,11 +312,11 @@ export function ProjectForm({
             <Input
               value={referralId}
               onChange={(event) => setReferralId(event.target.value)}
-              placeholder="Issued offline by the government office"
+              placeholder="ref1234"
             />
             <p className="mt-2 text-xs text-stone-500">
-              Example format: <span className="font-mono">greentrust1234</span> - your organisation
-              name followed by the office code.
+              Use the referral ID given to your organisation by the government office:{" "}
+              <span className="font-mono">ref1234</span>
             </p>
           </CardContent>
         </Card>

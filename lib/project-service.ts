@@ -6,20 +6,19 @@ import { IUser } from '@/models/User';
 /**
  * Referral gate.
  *
- * SOFT GATE ONLY: the expected id is derived from the NGO's own registered
- * organisation name, so anyone who can create an account can derive it. It
- * stops casual/spam listings, not impersonation. Real verification later =
+ * SOFT GATE ONLY: the referral id is a single shared value issued offline by
+ * government offices, so anyone who knows it can list a project. It stops
+ * casual/spam listings, not impersonation. Real verification later =
  * matching `registrationNumber` against a government registry.
  */
-export function expectedReferralId(organizationName: string): string {
-  const slug = (organizationName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  return slug ? `${slug}1234` : '';
+export const USING_REFERRAL_ID = 'ref1234';
+
+export function expectedReferralId(): string {
+  return USING_REFERRAL_ID;
 }
 
-export function isReferralValid(input: string, organizationName: string): boolean {
-  const normalize = (value: string) => (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const expected = expectedReferralId(organizationName);
-  return Boolean(expected) && normalize(input) === expected;
+export function isReferralValid(input: string): boolean {
+  return (input || '').toLowerCase().replace(/[^a-z0-9]/g, '') === USING_REFERRAL_ID;
 }
 
 export interface GroupedRoleCounts {

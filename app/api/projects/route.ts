@@ -127,12 +127,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!isReferralValid(referralId, user.organizationName || '')) {
+    if (!isReferralValid(referralId)) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            'The referral ID is not valid. Get one from your local government office (format: your organisation name followed by 1234).',
+          message: 'The referral ID is not valid. Get the referral ID from your local government office.',
         },
         { status: 403 }
       );
