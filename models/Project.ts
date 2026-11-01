@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { PROJECT_STATUSES, type ProjectStatus } from '@/lib/project-constants';
 
 /**
  * A volunteer role needs a concrete number of openings - NGOs commit to exact
@@ -31,7 +32,7 @@ export interface IProject extends Document {
   startsAt?: Date;
   endsAt?: Date;
   roles: IRole[];
-  status: 'open' | 'closed' | 'completed';
+  status: ProjectStatus;
   /** What the NGO typed, kept for audit. */
   referralId: string;
   referralVerifiedAt: Date;
@@ -52,8 +53,6 @@ export const PROJECT_CATEGORIES = [
   'encroachment',
   'other',
 ] as const;
-
-export const PROJECT_STATUSES = ['open', 'closed', 'completed'] as const;
 
 const RoleSchema = new Schema<IRole>(
   {

@@ -1,4 +1,4 @@
-import { PROJECT_STATUSES } from '@/models/Project';
+import { PROJECT_STATUSES } from '@/lib/project-constants';
 
 export const PROJECT_CATEGORY_LABELS: Record<string, string> = {
   pollution: 'Water / Air Pollution',
