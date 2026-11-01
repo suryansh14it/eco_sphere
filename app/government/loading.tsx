@@ -1,5 +1,5 @@
-import { LogoAnimation } from "@/components/logo-animation"
+import { RouteLoader } from "@/components/route-loader"
 
 export default function Loading() {
-  return <LogoAnimation isVisible={true} />
+  return <RouteLoader />
 }

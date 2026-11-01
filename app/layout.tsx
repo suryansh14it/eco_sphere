@@ -3,7 +3,6 @@ import type { Metadata } from "next"
 import { DM_Sans } from "next/font/google"
 import Script from "next/script"
 import "./globals.css"
-import { PageTransitionProvider } from "@/components/page-transition-provider"
 import { AuthProvider } from "@/components/auth-provider"
 import { Toaster } from "@/components/ui/toaster"
 
@@ -35,7 +34,7 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
         <AuthProvider>
-          <PageTransitionProvider>{children}</PageTransitionProvider>
+          {children}
           <Toaster />
         </AuthProvider>
       </body>
