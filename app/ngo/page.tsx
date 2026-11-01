@@ -35,7 +35,8 @@ import {
   MapPin,
   Target,
   TreePine,
-  Building
+  Building,
+  HandHeart
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
@@ -412,6 +413,12 @@ export default function NGODashboard() {
               <Button variant="ghost" className="w-full justify-start hover:bg-purple-50">
                 <Users className="w-4 h-4 mr-2" />
                 Community Issues
+              </Button>
+            </Link>
+            <Link href="/ngo/projects">
+              <Button variant="ghost" className="w-full justify-start hover:bg-purple-50">
+                <HandHeart className="w-4 h-4 mr-2" />
+                Volunteer Projects
               </Button>
             </Link>
             <Button

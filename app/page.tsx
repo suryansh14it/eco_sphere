@@ -401,6 +401,14 @@ export default function LandingPage() {
               >
                 <a href="/issues">Browse Issues</a>
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-teal-200 bg-transparent text-teal-600 hover:border-teal-300 hover:bg-teal-50 transition-all duration-300 mt-2"
+                asChild
+              >
+                <a href="/projects">Join Volunteer Projects</a>
+              </Button>
             </Card>
 
             <Card className="interactive-card glass p-6 group hover-lift">

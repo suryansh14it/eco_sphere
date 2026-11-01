@@ -35,6 +35,11 @@ export function PublicHeader() {
               Issue Board
             </Button>
           </Link>
+          <Link href="/projects">
+            <Button variant="ghost" size="sm" className="text-emerald-800">
+              Volunteer
+            </Button>
+          </Link>
           <Link href="/report-issue">
             <Button variant="ghost" size="sm" className="text-emerald-800">
               <Plus className="mr-1 h-4 w-4" />

@@ -694,6 +694,15 @@ export default function IssueDetailPage() {
                     <p className="text-sm font-medium text-purple-800">
                       Your organisation is handling this issue.
                     </p>
+                    <Link href={`/ngo/projects/new?fromIssue=${issue._id}`}>
+                      <Button
+                        variant="outline"
+                        className="w-full border-purple-200 text-purple-700 hover:bg-purple-50"
+                      >
+                        <HandHeart className="mr-2 h-4 w-4" />
+                        Start a volunteer project from this issue
+                      </Button>
+                    </Link>
                     <select
                       value={statusTarget}
                       onChange={(event) => setStatusTarget(event.target.value)}
