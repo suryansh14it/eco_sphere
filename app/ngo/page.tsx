@@ -33,7 +33,6 @@ import {
   Settings,
   Home,
   MapPin,
-  Target,
   TreePine,
   Building,
   HandHeart
@@ -55,6 +54,10 @@ export default function NGODashboard() {
   const [fundingProjects, setFundingProjects] = useState<any[]>([])
   const [selectedFundingProject, setSelectedFundingProject] = useState<any | null>(null)
   const [fundingProjectsLoading, setFundingProjectsLoading] = useState(false)
+  // Radix Select values must live in state - their values never land in
+  // FormData, so reading `formData.get('department')` silently sends null.
+  const [fundingDepartment, setFundingDepartment] = useState("")
+  const [fundingExperienceLevel, setFundingExperienceLevel] = useState("")
 
   // Redirect users to their correct dashboard based on role
   useEffect(() => {
@@ -68,6 +71,9 @@ export default function NGODashboard() {
   // fund-request form opens.
   useEffect(() => {
     if (activeSection !== "local-initiative" || loading || user?.role !== 'ngo') return;
+    // Fresh form every time the section opens
+    setFundingDepartment("");
+    setFundingExperienceLevel("");
     let cancelled = false;
     (async () => {
       setFundingProjectsLoading(true);
@@ -479,17 +485,34 @@ export default function NGODashboard() {
                     return;
                   }
 
+                  if (!fundingDepartment) {
+                    toast({
+                      title: "Select a government department",
+                      description: "Choose which department this funding request should go to.",
+                      variant: "destructive",
+                      duration: 5000,
+                    });
+                    setIsSubmitting(false);
+                    return;
+                  }
+
                   const formData = new FormData(e.currentTarget);
-                  
-                  // Get categories and SDG goals
-                  const categories = Array.from(formData.getAll('categories'));
-                  const sdgGoals = Array.from(formData.getAll('sdgGoals'));
-                  
+
                   const proposalData = {
-                    // Basic project info
-                    title: formData.get('title'),
-                    description: formData.get('description'),
-                    location: formData.get('location'),
+                    // Project identity comes from React state, NOT FormData:
+                    // the hidden-input/none-selected timing has bitten us
+                    // before, and the project picked in the picker is the
+                    // single source of truth for what we're asking funds for.
+                    projectId: selectedFundingProject.id,
+                    title: selectedFundingProject.title,
+                    description: selectedFundingProject.description,
+                    location: [
+                      selectedFundingProject.location?.address,
+                      selectedFundingProject.location?.district,
+                      selectedFundingProject.location?.state,
+                    ]
+                      .filter(Boolean)
+                      .join(", ") || "Not specified",
                     projectFunding: formData.get('projectFunding'),
                     timeline: formData.get('timeline'),
 
@@ -499,29 +522,17 @@ export default function NGODashboard() {
                     ngoEmail: user?.email || '',
                     ngoCommission: formData.get('ngoCommission'),
 
-                    // Government submission details
-                    department: formData.get('department'),
+                    // Government submission details (department is a Radix
+                    // Select - read from controlled state, not FormData)
+                    department: fundingDepartment,
                     proposalSummary: formData.get('proposalSummary'),
 
                     // Project details
-                    expectedImpact: formData.get('expectedImpact'),
                     implementationPlan: formData.get('implementationPlan'),
                     expectedStartDate: formData.get('expectedStartDate'),
                     teamSize: formData.get('teamSize'),
-                    experienceLevel: formData.get('experienceLevel'),
+                    experienceLevel: fundingExperienceLevel,
                     additionalNotes: formData.get('additionalNotes'),
-
-                    // Categories and goals
-                    categories: categories,
-                    sdgGoals: sdgGoals,
-
-                    // Key metrics
-                    keyMetrics: {
-                      volunteers: formData.get('volunteers'),
-                      beneficiaries: formData.get('beneficiaries'),
-                      areaImpact: formData.get('areaImpact'),
-                      carbonReduction: formData.get('carbonReduction')
-                    }
                   };
 
                   try {
@@ -542,6 +553,8 @@ export default function NGODashboard() {
                       // Reset form and show success message after 3 seconds
                       setTimeout(() => {
                         (e.currentTarget as HTMLFormElement).reset();
+                        setFundingDepartment("");
+                        setFundingExperienceLevel("");
                         setSubmitSuccess(false);
                         toast({
                           title: "🎉 Funding Request Submitted!",
@@ -552,13 +565,13 @@ export default function NGODashboard() {
                     } else {
                       throw new Error(result.message || 'Failed to submit initiative');
                     }
-                  } catch (error) {
+                  } catch (error: any) {
                     console.error('Error submitting initiative:', error);
                     toast({
                       title: "❌ Submission Failed",
-                      description: "Failed to submit initiative. Please try again.",
+                      description: error?.message || "Failed to submit the funding request. Please try again.",
                       variant: "destructive",
-                      duration: 5000,
+                      duration: 6000,
                     });
                   } finally {
                     setIsSubmitting(false);
@@ -701,69 +714,8 @@ export default function NGODashboard() {
                           </label>
                           <Input name="projectFunding" placeholder="e.g., ₹40L" className="glass border-border/30" required />
                         </div>
-                        <input type="hidden" name="projectId" value={selectedFundingProject.id} />
                       </>
                     )}
-                  </div>
-
-                  {/* Project Categories and Impact */}
-                  <div className="space-y-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-                    <h3 className="font-semibold text-blue-700 flex items-center gap-2">
-                      <Target className="w-4 h-4" />
-                      Project Focus & Impact
-                    </h3>
-                    
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-2 block">Project Categories</label>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {['Climate Action', 'Clean Water', 'Renewable Energy', 'Waste Management', 'Biodiversity', 'Air Quality'].map((category) => (
-                          <label key={category} className="flex items-center space-x-2 cursor-pointer">
-                            <input type="checkbox" name="categories" value={category} className="rounded border-border" />
-                            <span className="text-sm">{category}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-2 block">UN SDG Goals</label>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {['SDG 6: Clean Water', 'SDG 7: Clean Energy', 'SDG 11: Sustainable Cities', 'SDG 13: Climate Action', 'SDG 14: Life Below Water', 'SDG 15: Life on Land'].map((sdg) => (
-                          <label key={sdg} className="flex items-center space-x-2 cursor-pointer">
-                            <input type="checkbox" name="sdgGoals" value={sdg} className="rounded border-border" />
-                            <span className="text-sm">{sdg}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-2 block">Expected Impact</label>
-                      <Textarea
-                        name="expectedImpact"
-                        placeholder="Describe the expected environmental and community impact..."
-                        className="glass border-border/30 min-h-[80px]"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">Volunteers Needed</label>
-                        <Input name="volunteers" placeholder="e.g., 50" className="glass border-border/30" />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">Beneficiaries</label>
-                        <Input name="beneficiaries" placeholder="e.g., 1,000" className="glass border-border/30" />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">Area Impact</label>
-                        <Input name="areaImpact" placeholder="e.g., 5 km²" className="glass border-border/30" />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">Carbon Reduction</label>
-                        <Input name="carbonReduction" placeholder="e.g., 100 tons CO2" className="glass border-border/30" />
-                      </div>
-                    </div>
                   </div>
 
                   {/* Government Submission Details */}
@@ -778,7 +730,7 @@ export default function NGODashboard() {
                         <label className="text-sm font-medium text-foreground mb-2 block">
                           Government Department <span className="text-red-500">*</span>
                         </label>
-                        <Select name="department" required>
+                        <Select name="department" required value={fundingDepartment} onValueChange={setFundingDepartment}>
                           <SelectTrigger className="glass border-border/30">
                             <SelectValue placeholder="Select government department" />
                           </SelectTrigger>
@@ -844,7 +796,7 @@ export default function NGODashboard() {
                       </div>
                       <div>
                         <label className="text-sm font-medium text-foreground mb-2 block">Experience Level</label>
-                        <Select name="experienceLevel">
+                        <Select name="experienceLevel" value={fundingExperienceLevel} onValueChange={setFundingExperienceLevel}>
                           <SelectTrigger className="glass border-border/30">
                             <SelectValue placeholder="Select experience level" />
                           </SelectTrigger>
