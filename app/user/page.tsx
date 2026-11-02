@@ -52,6 +52,73 @@ import { UserAttendanceModal } from "@/components/user-attendance-modal"
 import { useToast } from "@/hooks/use-toast"
 import { Clock } from "lucide-react"
 
+/**
+ * Shape the JoinProjectsModal expects, filled from the real volunteer
+ * project board (GET /api/projects). Fake progress/impact fields stay
+ * neutral - only what projects actually have is shown.
+ */
+interface AvailableProjectDetailed {
+  id: string
+  title: string
+  organization: string
+  location: string
+  startDate: string
+  endDate: string
+  participants: number
+  maxParticipants: number
+  progress: number
+  status: "active" | "completed" | "upcoming"
+  impact: string
+  xp: string
+  description: string
+  environmentalImpact: { type: string; metrics: Record<string, number> }
+  goals: string[]
+  requirements: string[]
+  updates: { date: string; content: string }[]
+  coordinator: { name: string; contact: string }
+}
+
+interface JoinedRealProject {
+  id: string
+  title: string
+  organization: string
+  status: string
+  totalFilled: number
+  totalSlots: number
+  joinedAt?: string
+}
+
+/** Maps /api/projects board entries to the modal + project-card shapes. */
+function mapLiveProject(p: any): AvailableProjectDetailed {
+  const loc = [p.location?.address, p.location?.district, p.location?.state]
+    .filter(Boolean)
+    .join(", ");
+  const slots = p.totalSlots || 0;
+  const filled = p.totalFilled || 0;
+  const coordinator = p.ngo || { name: "NGO", email: "" };
+  return {
+    id: p.id,
+    title: p.title,
+    organization: coordinator.name || "NGO",
+    location: loc || "Not specified",
+    startDate: p.startsAt ? String(p.startsAt).slice(0, 10) : "—",
+    endDate: p.endsAt ? String(p.endsAt).slice(0, 10) : "—",
+    participants: filled,
+    maxParticipants: Math.max(slots, 1),
+    progress: slots > 0 ? Math.round((filled / slots) * 100) : 0,
+    status: p.status === "open" ? "active" : p.status === "completed" ? "completed" : "upcoming",
+    impact: "Community-led",
+    xp: "+5 XP",
+    description: p.description || "",
+    environmentalImpact: { type: "Volunteer project", metrics: {} },
+    goals: (p.roles || []).map((r: any) => r.title).filter(Boolean),
+    requirements: [],
+    updates: [],
+    coordinator: { name: coordinator.name || "NGO", contact: coordinator.email || "" },
+  };
+}
+
+
 const languageOptions = [
   { code: "en", name: "English", nativeName: "English" },
   { code: "hi", name: "Hindi", nativeName: "हिंदी" },
@@ -108,188 +175,13 @@ export default function UserDashboard() {
   const [earnedXP, setEarnedXP] = useState(0);
   const [showIssueXP, setShowIssueXP] = useState(false);
   
-  // Sample project data
-  const [availableProjects, setAvailableProjects] = useState([
-    {
-      id: "proj-001",
-      title: "Mumbai Urban Tree Plantation Drive",
-      organization: "Green Mumbai Foundation",
-      location: "Andheri West, Mumbai, Maharashtra",
-      coordinates: {
-        latitude: 19.1197,
-        longitude: 72.8468
-      },
-      startDate: "2025-09-01",
-      endDate: "2026-03-01",
-      participants: 120,
-      maxParticipants: 200,
-      progress: 60,
-      status: "active" as "active",
-      impact: "High",
-      xp: "40 XP",
-      description: "Join the largest urban tree plantation drive in Mumbai! Help plant 5,000 native trees to improve air quality and urban biodiversity. Supported by BMC and local schools.",
-      environmentalImpact: {
-        type: "Urban reforestation to improve air quality and biodiversity",
-        metrics: {
-          treesPlanted: 3200,
-          co2Reduction: 22,
-          areaRestored: 6.5
-        }
-      },
-      goals: [
-        "Plant 5,000 native trees in 10 Mumbai wards",
-        "Create 5 community-managed green zones",
-        "Reduce PM2.5 levels by 10% in target areas",
-        "Engage 20 schools in environmental education"
-      ],
-      requirements: [
-        "Participate in at least 2 planting sessions",
-        "Basic plant care knowledge",
-        "Willingness to work outdoors in Mumbai weather"
-      ],
-      updates: [
-        {
-          date: "2025-10-15",
-          content: "First phase complete: 1,200 trees planted in Andheri and Bandra."
-        },
-        {
-          date: "2025-12-01",
-          content: "Air quality improved by 4% in pilot zones."
-        }
-      ],
-      coordinator: {
-        name: "Dr. Rakesh Patil",
-        contact: "rakesh.patil@greenmumbai.org"
-      },
-      funding: {
-        source: "Brihanmumbai Municipal Corporation (BMC)",
-        amount: "₹22,00,000"
-      },
-      partners: ["BMC", "Mumbai University", "Local Schools"]
-    },
-    {
-      id: "proj-002",
-      title: "Chennai Marina Beach Cleanup",
-      organization: "Ocean Care India",
-      location: "Marina Beach, Chennai, Tamil Nadu",
-      startDate: "2025-08-20",
-      endDate: "2025-11-20",
-      participants: 85,
-      maxParticipants: 150,
-      progress: 70,
-      status: "active" as "active",
-      impact: "Medium",
-      xp: "30 XP",
-      description: "Volunteer for weekend cleanups at Marina Beach! Remove plastic waste, educate beachgoers, and help protect marine life. Supported by Chennai Corporation and local NGOs.",
-      environmentalImpact: {
-        type: "Marine habitat protection and plastic pollution reduction",
-        metrics: {
-          wasteRecycled: 1200,
-          areaRestored: 5.8,
-          speciesProtected: 18
-        }
-      },
-      goals: [
-        "Remove 3 tons of plastic waste from Marina Beach",
-        "Install 20 educational signboards",
-        "Engage 10 local schools in awareness drives",
-        "Reduce plastic pollution by 30% in target zones"
-      ],
-      requirements: [
-        "Commitment to at least 2 cleanup events",
-        "Ability to work in sandy and humid conditions",
-        "Basic understanding of waste segregation"
-      ],
-      updates: [
-        {
-          date: "2024-01-25",
-          content: "First month completed with over 500kg of waste collected. Great progress on the southern sector!"
-        },
-        {
-          date: "2024-02-20",
-          content: "Local marine wildlife showing signs of returning to cleaned areas. Sea turtle nesting increased by 15%."
-        }
-      ],
-      coordinator: {
-        name: "Raj Sharma",
-        contact: "raj@oceanguardians.org"
-      },
-      partners: ["Marine Conservation Institute", "Local Fishermen's Association", "Tourism Board"]
-    },
-    {
-      id: "proj-003",
-      title: "Solar Energy Awareness",
-      organization: "Renewable Future",
-      location: "Multiple Locations",
-      startDate: "2023-12-01",
-      endDate: "2024-06-01",
-      participants: 15,
-      maxParticipants: 30,
-      progress: 35,
-      status: "active" as "active",
-      impact: "Medium",
-      xp: "20 XP",
-      description: "Help promote solar energy adoption through community workshops and demonstrations. Volunteers will assist in organizing events, creating educational materials, and conducting home solar potential assessments.",
-      environmentalImpact: {
-        type: "Renewable energy promotion and carbon footprint reduction",
-        metrics: {
-          co2Reduction: 22
-        }
-      },
-      goals: [
-        "Conduct 20 community workshops about solar energy",
-        "Help 50 households assess their solar potential",
-        "Facilitate solar installation for at least 15 households",
-        "Reduce community carbon footprint by estimated 25 tons annually"
-      ],
-      requirements: [
-        "Basic understanding of renewable energy concepts",
-        "Good communication skills for community engagement",
-        "Ability to assist with technical demonstrations",
-        "Commitment to at least 5 hours per week"
-      ],
-      updates: [
-        {
-          date: "2023-12-20",
-          content: "First 5 workshops completed with over 120 participants. Great interest in home solar assessments."
-        },
-        {
-          date: "2024-02-05",
-          content: "First 10 households have committed to solar installation. Partnership with solar provider secured for discounted rates."
-        }
-      ],
-      coordinator: {
-        name: "Priya Nair",
-        contact: "priya@renewablefuture.org"
-      },
-      funding: {
-        source: "Energy Innovation Grant",
-        amount: "₹10,00,000"
-      },
-      partners: ["State Energy Department", "Solar Solutions Inc.", "Local Community College"]
-    }
-  ]);
-  
-  // Sample joined projects
-  const [joinedProjects, setJoinedProjects] = useState([
-    {
-      id: "proj-001",
-      title: "Urban Reforestation Initiative",
-      organization: "Green Earth Foundation",
-      status: "active" as "active",
-      progress: 45,
-      participants: 28,
-      maxParticipants: 50,
-      daysLeft: 120,
-      xpEarned: 15,
-      totalXp: 30,
-      xp: "30 XP",
-      endDate: "2024-05-15"
-    }
-  ]);
-  
-  const [joinedProjectIds, setJoinedProjectIds] = useState(new Set(["proj-001"]));
-  
+  // Real volunteer-project data. Joined projects + what is open to join;
+  // both come straight from the /api/projects board.
+  const [availableProjects, setAvailableProjects] = useState<AvailableProjectDetailed[]>([])
+  const [joinedProjects, setJoinedProjects] = useState<JoinedRealProject[]>([])
+  const [joinedProjectIds, setJoinedProjectIds] = useState(new Set<string>())
+  const [projectsLoading, setProjectsLoading] = useState(true)
+
   // Get the current language object
   const currentLanguage = languageOptions.find(l => l.code === language) || languageOptions[0]
   
@@ -300,6 +192,49 @@ export default function UserDashboard() {
       router.push(`/${user.role}`);
     }
   }, [user, loading, router]);
+
+  // Load real volunteer projects: what I joined + what is open to join
+  useEffect(() => {
+    if (loading || !user) return;
+    if (user.role !== "user") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [joinedRes, openRes] = await Promise.all([
+          fetch("/api/projects?joined=1&limit=100", { credentials: "include" }),
+          fetch("/api/projects?status=open&limit=100"),
+        ]);
+        const joinedData = await joinedRes.json();
+        const openData = await openRes.json();
+        if (!joinedRes.ok || !joinedData.success) {
+          throw new Error(joinedData.message || "Could not load your projects.");
+        }
+        if (!openRes.ok || !openData.success) {
+          throw new Error(openData.message || "Could not load available projects.");
+        }
+        if (cancelled) return;
+        setJoinedProjects(
+          ((joinedData.projects || []) as any[]).map((p) => ({
+            id: p.id,
+            title: p.title,
+            organization: p.ngo?.name || "NGO",
+            status: p.status,
+            totalFilled: p.totalFilled || 0,
+            totalSlots: p.totalSlots || 0,
+          }))
+        );
+        setJoinedProjectIds(new Set(((joinedData.projects || []) as any[]).map((p) => p.id)));
+        setAvailableProjects(((openData.projects || []) as any[]).map(mapLiveProject));
+      } catch (error: any) {
+        console.error("Error loading volunteer projects:", error);
+      } finally {
+        if (!cancelled) setProjectsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, loading]);
   
   // Update completedItems Set from array when available
   useEffect(() => {
@@ -1012,95 +947,99 @@ export default function UserDashboard() {
                 </Button>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {joinedProjects.map((project, index) => (
-                    <div
-                      key={project.id}
-                      className="p-4 rounded-lg border border-emerald-200 bg-emerald-50/50"
+                {projectsLoading ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">
+                    Loading your projects...
+                  </div>
+                ) : joinedProjects.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <TreePine className="mx-auto mb-3 h-10 w-10 text-emerald-300" />
+                    <p className="font-medium text-foreground mb-1">No projects joined yet</p>
+                    <p className="mb-4 text-sm text-muted-foreground">
+                      Join an NGO volunteer project and it will show up here.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-transparent"
+                      onClick={() => setProjectModalOpen(true)}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium text-foreground">{project.title}</h4>
-                        <Badge className="bg-emerald-100 text-emerald-700">{project.xp}</Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        <span className="font-medium">{project.organization}</span>
-                      </p>
-                      
-                      <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className="rounded-md bg-emerald-50 border border-emerald-100 p-2 text-center">
-                          <div className="text-xs text-muted-foreground mb-1">Progress</div>
-                          <div className="font-medium text-emerald-700">{project.progress}%</div>
-                        </div>
-                        <div className="rounded-md bg-blue-50 border border-blue-100 p-2 text-center">
-                          <div className="text-xs text-muted-foreground mb-1">XP Earned</div>
-                          <div className="font-medium text-blue-700">{project.xpEarned}/{project.totalXp}</div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-sm mb-3">
-                        <span className="flex items-center text-emerald-700 gap-1">
-                          <Users className="h-3.5 w-3.5" />
-                          {project.participants}/{project.maxParticipants} {t.participants}
-                        </span>
-                        <span className="flex items-center text-amber-700 gap-1">
-                          <Clock className="h-3.5 w-3.5" />
-                          {project.daysLeft} {t.timeLeft}
-                        </span>
-                      </div>
-                      
-                      <div className="mt-2">
-                        <div className="flex items-center justify-between text-xs mb-1">
-                          <span>{project.status === "active" ? "In progress" : project.status}</span>
-                          <span>{project.progress}%</span>
-                        </div>
-                        <Progress value={project.progress} className="h-2" />
-                      </div>
-                      
-                      <div className="mt-3 flex gap-2">
-                        {/* Mark Attendance Button */}
-                        <Button
-                          variant={checkedInProjects.has(project.id) ? "destructive" : "default"}
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const isCheckedIn = checkedInProjects.has(project.id);
-                            handleMarkAttendance(project, isCheckedIn ? 'checkout' : 'checkin');
-                          }}
-                          className="flex-1"
-                        >
-                          {checkedInProjects.has(project.id) ? (
-                            <>
-                              <Clock className="w-3 h-3 mr-1" />
-                              Check Out
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Check In
-                            </>
-                          )}
-                        </Button>
-                        
-                        {/* View Details Button */}
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Find the full project data in availableProjects
-                            const fullProjectData = availableProjects.find(p => p.id === project.id);
-                            if (fullProjectData) {
-                              setSelectedProject(fullProjectData);
-                              setProjectModalOpen(true);
+                      <Plus className="w-4 h-4 mr-2" />
+                      {t.joinMore}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {joinedProjects.map((project) => (
+                      <div
+                        key={project.id}
+                        className="p-4 rounded-lg border border-emerald-200 bg-emerald-50/50"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-foreground">{project.title}</h4>
+                          <Badge
+                            variant="outline"
+                            className={
+                              project.status === "open"
+                                ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                : "bg-stone-100 text-stone-600 border-stone-200"
                             }
-                          }}
-                        >
-                          View Details
-                        </Button>
+                          >
+                            {project.status === "open"
+                              ? "Recruiting"
+                              : project.status === "completed"
+                                ? "Completed"
+                                : "Closed"}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          By <span className="font-medium">{project.organization}</span>
+                        </p>
+
+                        <div className="flex items-center justify-between text-sm mb-3">
+                          <span className="flex items-center text-emerald-700 gap-1">
+                            <Users className="h-3.5 w-3.5" />
+                            {project.totalFilled} of {project.totalSlots} volunteers signed up
+                          </span>
+                          {project.joinedAt && (
+                            <span className="flex items-center text-stone-500 gap-1">
+                              <Clock className="h-3.5 w-3.5" />
+                              {formatDistanceToNow(new Date(project.joinedAt), { addSuffix: true })}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-2">
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span>Volunteers signed up</span>
+                            <span>
+                              {project.totalSlots > 0
+                                ? Math.round((project.totalFilled / project.totalSlots) * 100)
+                                : 0}
+                              %
+                            </span>
+                          </div>
+                          <Progress
+                            value={
+                              project.totalSlots > 0
+                                ? (project.totalFilled / project.totalSlots) * 100
+                                : 0
+                            }
+                            className="h-2"
+                          />
+                        </div>
+
+                        <div className="mt-3">
+                          <Link href={`/projects/${project.id}`}>
+                            <Button variant="outline" size="sm" className="w-full bg-transparent">
+                              View project page
+                            </Button>
+                          </Link>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -1617,7 +1556,6 @@ export default function UserDashboard() {
         }}
       />
 
-      {/* Join Projects Modal */}
       {/* Join Projects Modal - Only for browsing and joining new projects */}
       <JoinProjectsModal
         open={projectModalOpen && selectedProject === null}
@@ -1629,43 +1567,9 @@ export default function UserDashboard() {
         availableProjects={availableProjects}
         joinedProjectIds={Array.from(joinedProjectIds)}
         onJoinProject={(projectId) => {
-          // Logic to join a project
-          console.log(`Joining project with ID: ${projectId}`);
-          
-          // Find the project in availableProjects
-          const projectToJoin = availableProjects.find(p => p.id === projectId);
-          
-          if (projectToJoin) {
-            // Add to joined projects
-            const newJoinedProject = {
-              id: projectToJoin.id,
-              title: projectToJoin.title,
-              organization: projectToJoin.organization,
-              status: projectToJoin.status,
-              progress: projectToJoin.progress,
-              participants: projectToJoin.participants,
-              maxParticipants: projectToJoin.maxParticipants,
-              daysLeft: 120, // Calculate actual days remaining
-              xpEarned: 0,
-              totalXp: parseInt(projectToJoin.xp.replace(' XP', '')),
-              xp: projectToJoin.xp,
-              endDate: projectToJoin.endDate
-            };
-            
-            setJoinedProjects([...joinedProjects, newJoinedProject]);
-            
-            // Update joined project IDs
-            const updatedJoinedIds = new Set(joinedProjectIds);
-            updatedJoinedIds.add(projectId);
-            setJoinedProjectIds(updatedJoinedIds);
-            
-            // Show success toast
-            toast({
-              title: "Project Joined",
-              description: `You've successfully joined "${projectToJoin.title}"`,
-              variant: "success" as any
-            });
-          }
+          // Joining needs a role pick, so send people to the project page
+          setProjectModalOpen(false);
+          router.push(`/projects/${projectId}`);
         }}
       />
 

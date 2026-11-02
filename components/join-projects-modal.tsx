@@ -94,17 +94,11 @@ export function JoinProjectsModal({
   onJoinProject
 }: JoinProjectsModalProps) {
   const [selectedProject, setSelectedProject] = useState<ProjectDetailedInfo | null>(null)
-  const [joinRequested, setJoinRequested] = useState<Record<string, boolean>>({})
   const [fitLoading, setFitLoading] = useState(false)
   const [fitError, setFitError] = useState<string>("")
   const [fitResult, setFitResult] = useState<any | null>(null)
 
   const filteredProjects = availableProjects.filter(p => !joinedProjectIds.includes(p.id))
-
-  const handleJoinRequest = (projectId: string) => {
-    onJoinProject(projectId)
-    setJoinRequested(prev => ({ ...prev, [projectId]: true }))
-  }
 
   const analyzeFit = async () => {
     if (!selectedProject) return;
@@ -495,25 +489,17 @@ export function JoinProjectsModal({
                       </div>
                       <Button disabled>Project Full</Button>
                     </div>
-                  ) : joinRequested[selectedProject.id] ? (
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-emerald-600 flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span>Request sent! You'll be notified when approved.</span>
-                      </div>
-                      <Button disabled className="bg-emerald-500">Request Sent</Button>
-                    </div>
                   ) : (
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-muted-foreground">
-                        Join this project to earn {selectedProject.xp} and make a real impact.
+                        Want to join? The project page opens so you can pick a volunteer role.
                       </div>
-                      <Button 
+                      <Button
                         className="bg-emerald-600 hover:bg-emerald-700"
-                        onClick={() => handleJoinRequest(selectedProject.id)}
+                        onClick={() => onJoinProject(selectedProject.id)}
                       >
                         <UserPlus className="h-4 w-4 mr-2" />
-                        Join Project
+                        Open project to join
                       </Button>
                     </div>
                   )}
