@@ -22,7 +22,7 @@ export default function NgoIssuesPage() {
         </div>
       </div>
       <main className="mx-auto max-w-6xl px-4 py-10">
-        <IssueFeed mode="adopt" />
+        <IssueFeed mode="ngo" />
       </main>
     </div>
   );

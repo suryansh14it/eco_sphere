@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import connectDB from '@/lib/mongodb';
 import Project from '@/models/Project';
-import ProjectMember, { IProjectMember } from '@/models/ProjectMember';
+import ProjectMember from '@/models/ProjectMember';
 import { requireUser, requireRole } from '@/lib/session';
 import {
   isValidCategory,
+  membersForProjects,
   normalizeRoles,
   roleCountForProject,
   serializeProject,
@@ -43,14 +44,6 @@ export async function GET(
     );
 
     let myMembership: { id: string; joinStatus: 'joined' | 'removed'; roleId: string; joinedAt: string } | null = null;
-    let members: Array<{
-      id: string;
-      name: string;
-      email: string;
-      roleId: string;
-      roleTitle: string;
-      joinedAt: string;
-    }> = [];
 
     if (authUser) {
       const own = await ProjectMember.findOne({
@@ -70,28 +63,21 @@ export async function GET(
       }
     }
 
-    if (isOwner) {
-      const roster = await ProjectMember.find({ projectId: id })
-        .sort({ joinedAt: -1 })
-        .lean() as unknown as IProjectMember[];
-      members = roster
-        .filter((m) => m.status === 'joined')
-        .map((m) => ({
-          id: String(m._id),
-          name: m.user.name,
-          email: m.user.email,
-          roleId: m.roleId,
-          roleTitle: serialized.roles.find((r) => r.id === m.roleId)?.title || 'Volunteer',
-          joinedAt: m.joinedAt,
-        }));
-    }
+    // Full roster (with profile extras) exists only for the owning NGO. It is
+    // already embedded in the serialized project as `members`.
+    const finalProject = isOwner
+      ? serializeProject(
+          project.toObject(),
+          counts,
+          (await membersForProjects([id]))[id]
+        )
+      : serialized;
 
     return NextResponse.json({
       success: true,
-      project: serialized,
+      project: finalProject,
       isOwner,
       myMembership,
-      members,
     });
   } catch (error: any) {
     console.error('Error fetching project:', error);

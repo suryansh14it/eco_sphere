@@ -50,6 +50,12 @@ export default function NGODashboard() {
   const { toast } = useToast();
   const router = useRouter();
 
+  // Volunteer projects with at least one joined volunteer - only these are
+  // eligible to ask the government for funds.
+  const [fundingProjects, setFundingProjects] = useState<any[]>([])
+  const [selectedFundingProject, setSelectedFundingProject] = useState<any | null>(null)
+  const [fundingProjectsLoading, setFundingProjectsLoading] = useState(false)
+
   // Redirect users to their correct dashboard based on role
   useEffect(() => {
     if (!loading && user && user.role !== 'ngo') {
@@ -57,6 +63,34 @@ export default function NGODashboard() {
       router.push(`/${user.role}`);
     }
   }, [user, loading, router]);
+
+  // Load the NGO's volunteer projects (and their join evidence) whenever the
+  // fund-request form opens.
+  useEffect(() => {
+    if (activeSection !== "local-initiative" || loading || user?.role !== 'ngo') return;
+    let cancelled = false;
+    (async () => {
+      setFundingProjectsLoading(true);
+      try {
+        const res = await fetch('/api/projects?mine=1&limit=100', { credentials: 'include' });
+        const data = await res.json();
+        if (data.success && !cancelled) {
+          const withVolunteers = (data.projects || []).filter((p: any) => p.totalFilled > 0);
+          setFundingProjects(withVolunteers);
+          setSelectedFundingProject((prev: any) =>
+            prev ? (withVolunteers.find((p: any) => p.id === prev.id) || null) : null
+          );
+        }
+      } catch (error) {
+        console.error('Error loading volunteer projects for funding:', error);
+      } finally {
+        if (!cancelled) setFundingProjectsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSection, user, loading]);
 
   // Show loading only while auth provider is loading
   if (loading) {
@@ -143,7 +177,7 @@ export default function NGODashboard() {
               onClick={() => setActiveSection("local-initiative")}
             >
               <Plus className="w-4 h-4 mr-2" />
-              Create Local Initiative
+              Ask Govt for Funds
             </Button>
             <Button
               variant={activeSection === "project-management" ? "default" : "ghost"}
@@ -420,10 +454,12 @@ export default function NGODashboard() {
               <CardHeader>
                 <CardTitle className="text-lg font-serif flex items-center gap-2">
                   <Plus className="w-5 h-5 text-green-600" />
-                  Create Local Environmental Initiative
+                  Ask the Government for Funds
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Start your own community-driven environmental project and submit it directly to the government for funding approval.
+                  Pick one of your volunteer projects that people have already joined and submit a
+                  funding request to the government. The volunteers who joined are shown to the
+                  government as proof of community support.
                 </p>
               </CardHeader>
               <CardContent>
@@ -431,6 +467,17 @@ export default function NGODashboard() {
                   e.preventDefault();
                   setIsSubmitting(true);
                   setSubmitSuccess(false);
+
+                  if (!selectedFundingProject) {
+                    toast({
+                      title: "Pick a volunteer project first",
+                      description: "Funding can only be requested for a volunteer project that people have already joined.",
+                      variant: "destructive",
+                      duration: 5000,
+                    });
+                    setIsSubmitting(false);
+                    return;
+                  }
 
                   const formData = new FormData(e.currentTarget);
                   
@@ -446,10 +493,10 @@ export default function NGODashboard() {
                     projectFunding: formData.get('projectFunding'),
                     timeline: formData.get('timeline'),
 
-                    // NGO info
-                    ngoId: user?.id || 'ngo_local_001',
-                    ngoName: user?.name || user?.email || 'Local NGO',
-                    ngoEmail: user?.email || 'ngo@example.com',
+                    // NGO info (server takes identity from the session)
+                    ngoId: user?.id || '',
+                    ngoName: user?.organizationName || user?.name || user?.email || '',
+                    ngoEmail: user?.email || '',
                     ngoCommission: formData.get('ngoCommission'),
 
                     // Government submission details
@@ -497,8 +544,8 @@ export default function NGODashboard() {
                         (e.currentTarget as HTMLFormElement).reset();
                         setSubmitSuccess(false);
                         toast({
-                          title: "🎉 Initiative Submitted Successfully!",
-                          description: `Local Initiative "${proposalData.title}" has been submitted to the government for review and funding approval.`,
+                          title: "🎉 Funding Request Submitted!",
+                          description: `Your request for "${proposalData.title}" has been sent to the government with ${selectedFundingProject.totalFilled} joined volunteer(s) as evidence.`,
                           duration: 6000,
                         });
                       }, 3000);
@@ -518,53 +565,145 @@ export default function NGODashboard() {
                   }
                 }}>
                   
-                  {/* Project Basic Information */}
+                  {/* Step 1 - pick the volunteer project evidence */}
                   <div className="space-y-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
                     <h3 className="font-semibold text-green-700 flex items-center gap-2">
                       <FileText className="w-4 h-4" />
-                      Project Information
+                      Project On The Volunteer Board
                     </h3>
-                    
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-2 block">
-                        Project Title <span className="text-red-500">*</span>
-                      </label>
-                      <Input name="title" placeholder="Enter your project title" className="glass border-border/30" required />
-                    </div>
-                    
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-2 block">
-                        Project Description <span className="text-red-500">*</span>
-                      </label>
-                      <Textarea
-                        name="description"
-                        placeholder="Describe your environmental initiative in detail..."
-                        className="glass border-border/30 min-h-[120px]"
-                        required
-                      />
-                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      You can only ask the government for funds for a volunteer project people have
+                      already joined - the volunteers who signed up are shown to the government as
+                      proof of community support.
+                    </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {fundingProjectsLoading ? (
+                      <p className="text-sm text-muted-foreground py-2">Loading your projects...</p>
+                    ) : fundingProjects.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-orange-300 bg-orange-50 p-4 text-sm text-orange-800">
+                        <p className="font-medium mb-1">No volunteer project has community sign-ups yet</p>
+                        <p>
+                          Create a project under Volunteer Projects, and once volunteers join it will
+                          become eligible for government funding requests.
+                        </p>
+                      </div>
+                    ) : (
                       <div>
                         <label className="text-sm font-medium text-foreground mb-2 block">
-                          Project Location <span className="text-red-500">*</span>
+                          Select your volunteer project <span className="text-red-500">*</span>
                         </label>
-                        <Input name="location" placeholder="e.g., Downtown Vancouver, BC" className="glass border-border/30" required />
+                        <select
+                          className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                          value={selectedFundingProject?.id || ""}
+                          onChange={(e) => {
+                            setSelectedFundingProject(
+                              fundingProjects.find((p) => p.id === e.target.value) || null
+                            );
+                          }}
+                          required
+                        >
+                          <option value="">Choose a project with joined volunteers</option>
+                          {fundingProjects.map((project) => (
+                            <option key={project.id} value={project.id}>
+                              {project.title} ({project.totalFilled} volunteer
+                              {project.totalFilled === 1 ? "" : "s"} joined)
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground mb-2 block">
-                          Timeline <span className="text-red-500">*</span>
-                        </label>
-                        <Input name="timeline" placeholder="e.g., 18 months" className="glass border-border/30" required />
-                      </div>
-                    </div>
+                    )}
 
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-2 block">
-                        Requested Funding <span className="text-red-500">*</span>
-                      </label>
-                      <Input name="projectFunding" placeholder="e.g., $50,000 or ₹40L" className="glass border-border/30" required />
-                    </div>
+                    {selectedFundingProject && (
+                      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                        <p className="text-sm font-semibold text-emerald-800">
+                          {selectedFundingProject.totalFilled} volunteer
+                          {selectedFundingProject.totalFilled === 1 ? "" : "s"} have already joined
+                          this project
+                        </p>
+                        <p className="text-xs text-emerald-700 mt-1">
+                          Names shown to the government:{" "}
+                          {(selectedFundingProject.members || [])
+                            .map((m: any) => m.name)
+                            .join(", ")}
+                        </p>
+                        <div className="mt-2 space-y-2">
+                          {(selectedFundingProject.members || []).map((m: any) => (
+                            <div
+                              key={m.id}
+                              className="rounded-md border border-emerald-100 bg-white px-2.5 py-2 text-xs"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-semibold text-stone-800">{m.name}</span>
+                                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                                  {m.roleTitle}
+                                </span>
+                              </div>
+                              <p className="mt-0.5 text-stone-600">
+                                Joined this project as {m.roleTitle} · {m.email}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedFundingProject && (
+                      <>
+                        <div>
+                          <label className="text-sm font-medium text-foreground mb-2 block">Project Title</label>
+                          <Input
+                            name="title"
+                            readOnly
+                            key={`title-${selectedFundingProject.id}`}
+                            defaultValue={selectedFundingProject.title}
+                            className="glass border-border/30 bg-muted/30"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-foreground mb-2 block">Project Description</label>
+                          <Textarea
+                            name="description"
+                            readOnly
+                            key={`desc-${selectedFundingProject.id}`}
+                            defaultValue={selectedFundingProject.description}
+                            className="glass border-border/30 min-h-[100px] bg-muted/30"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-foreground mb-2 block">Project Location</label>
+                            <Input
+                              name="location"
+                              readOnly
+                              key={`loc-${selectedFundingProject.id}`}
+                              defaultValue={
+                                [
+                                  selectedFundingProject.location?.address,
+                                  selectedFundingProject.location?.district,
+                                  selectedFundingProject.location?.state,
+                                ]
+                                  .filter(Boolean)
+                                  .join(", ") || "Not specified"
+                              }
+                              className="glass border-border/30 bg-muted/30"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-foreground mb-2 block">
+                              Timeline <span className="text-red-500">*</span>
+                            </label>
+                            <Input name="timeline" placeholder="e.g., 18 months" className="glass border-border/30" required />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-foreground mb-2 block">
+                            Requested Funding <span className="text-red-500">*</span>
+                          </label>
+                          <Input name="projectFunding" placeholder="e.g., ₹40L" className="glass border-border/30" required />
+                        </div>
+                        <input type="hidden" name="projectId" value={selectedFundingProject.id} />
+                      </>
+                    )}
                   </div>
 
                   {/* Project Categories and Impact */}
@@ -744,17 +883,17 @@ export default function NGODashboard() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Submitting Initiative...
+                        Submitting Funding Request...
                       </>
                     ) : submitSuccess ? (
                       <>
                         <CheckCircle className="w-4 h-4 mr-2" />
-                        Initiative Submitted Successfully!
+                        Funding Request Submitted Successfully!
                       </>
                     ) : (
                       <>
                         <TreePine className="w-4 h-4 mr-2" />
-                        Submit Local Initiative to Government
+                        Ask the Government for Funds
                       </>
                     )}
                   </Button>

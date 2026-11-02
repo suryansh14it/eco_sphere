@@ -32,7 +32,7 @@ import {
   timeAgo,
 } from "@/components/issues/issue-utils";
 
-export type IssueFeedMode = "public" | "triage" | "adopt";
+export type IssueFeedMode = "public" | "triage" | "adopt" | "ngo";
 
 interface IssueFeedProps {
   mode?: IssueFeedMode;
@@ -45,6 +45,8 @@ interface IssueListItem {
   category: string;
   severity: number;
   status: string;
+  reporter?: { name?: string };
+  acknowledgedAt?: string | null;
   location?: { address?: string; district?: string; state?: string };
   mediaCount?: number;
   confirmCount?: number;
@@ -88,6 +90,13 @@ const MODE_DEFAULTS: Record<IssueFeedMode, { status: string; sort: string; title
     title: "Issues to Take Up",
     subtitle:
       "Verified problems that still need an implementing partner. Adopt one and it becomes your project.",
+  },
+  ngo: {
+    status: "",
+    sort: "newest",
+    title: "Community Issues",
+    subtitle:
+      "Every issue reported by the community - whether the government has taken it up or not. Issues moved forward by the government carry a 'With govt' tag; the rest are labelled with the reporting citizen.",
   },
 };
 
@@ -285,6 +294,15 @@ export function IssueFeed({ mode = "public" }: IssueFeedProps) {
             const Icon = CATEGORY_ICONS[issue.category] || AlertTriangle;
             const meta = statusMeta(issue.status);
             const severity = severityLabel(issue.severity);
+            const withGovt =
+              mode === "ngo" &&
+              Boolean(
+                issue.acknowledgedAt ||
+                  issue.assignedDepartment ||
+                  ["triaged", "assigned", "in_progress", "resolved"].includes(
+                    issue.status
+                  )
+              );
 
             return (
               <Link key={issue._id} href={`/issues/${issue._id}`} className="group">
@@ -299,12 +317,32 @@ export function IssueFeed({ mode = "public" }: IssueFeedProps) {
                           <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
                             {categoryLabel(issue.category)}
                           </p>
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${meta.className}`}
-                          >
-                            <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-                            {meta.label}
-                          </span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${meta.className}`}
+                            >
+                              <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+                              {meta.label}
+                            </span>
+                            {mode === "ngo" &&
+                              (withGovt ? (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700"
+                                  title="Government has acknowledged/routed this issue"
+                                >
+                                  <Building2 className="h-3 w-3" />
+                                  With govt
+                                </span>
+                              ) : (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[11px] font-medium text-purple-700"
+                                  title="Reported by a community member; government has not taken it up yet"
+                                >
+                                  <Users className="h-3 w-3" />
+                                  Reported by {issue.reporter?.name || "community member"}
+                                </span>
+                              ))}
+                          </div>
                         </div>
                       </div>
                       <span className={`text-xs font-semibold ${severity.className}`}>
@@ -349,7 +387,11 @@ export function IssueFeed({ mode = "public" }: IssueFeedProps) {
                     </div>
 
                     <div className="flex items-center justify-end pt-1 text-xs font-medium text-emerald-700">
-                      {mode === "adopt" ? "Adopt this issue" : "View details"}
+                      {mode === "adopt"
+                        ? "Adopt this issue"
+                        : mode === "ngo"
+                          ? "View & adopt"
+                          : "View details"}
                       <ArrowRight className="ml-1 h-3.5 w-3.5" />
                     </div>
                   </CardContent>

@@ -44,6 +44,12 @@ export interface GovNewRequestDetail {
   };
   requirements: string[];
   coordinator?: { name: string; contact: string };
+  // Proof of community backing that came in with the funding request
+  volunteerEvidence?: {
+    projectId: string;
+    volunteerCount: number;
+    volunteerNames: string[];
+  };
   attachments?: { name: string; url?: string }[];
   // Negotiation status and details
   negotiation?: {
@@ -280,6 +286,24 @@ export function GovRequestDetailsModal({
                   <div>
                     <h4 className="font-medium mb-1">Coordinator</h4>
                     <p className="text-sm">{request.coordinator.name} — {request.coordinator.contact}</p>
+                  </div>
+                </>
+              )}
+              {request.volunteerEvidence && request.volunteerEvidence.volunteerCount > 0 && (
+                <>
+                  <Separator />
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                    <h4 className="font-medium flex items-center gap-2 mb-2"><Users className="w-4 h-4 text-emerald-700" /> Volunteers who have already joined</h4>
+                    <p className="text-sm text-emerald-800 font-semibold mb-1">
+                      {request.volunteerEvidence.volunteerCount} community volunteer
+                      {request.volunteerEvidence.volunteerCount === 1 ? "" : "s"} signed up for the linked volunteer
+                      project before this funding request was made.
+                    </p>
+                    <ul className="text-sm space-y-1">
+                      {request.volunteerEvidence.volunteerNames.map((n, i) => (
+                        <li key={i} className="flex gap-2 items-start"><span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />{n}</li>
+                      ))}
+                    </ul>
                   </div>
                 </>
               )}

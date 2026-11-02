@@ -32,8 +32,11 @@ import {
 
 interface RosterMember {
   id: string;
+  userId: string;
   name: string;
   email: string;
+  phone: string;
+  location: string;
   roleId: string;
   roleTitle: string;
   joinedAt: string;
@@ -46,13 +49,13 @@ export default function ProjectDetailPage() {
 
   const [project, setProject] = useState<ProjectItem | null>(null);
   const [isOwner, setIsOwner] = useState(false);
+  const [members, setMembers] = useState<RosterMember[]>([]);
   const [myMembership, setMyMembership] = useState<{
     id: string;
     joinStatus: "joined" | "removed";
     roleId: string;
     joinedAt: string;
   } | null>(null);
-  const [members, setMembers] = useState<RosterMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -68,7 +71,8 @@ export default function ProjectDetailPage() {
       setProject(data.project);
       setIsOwner(Boolean(data.isOwner));
       setMyMembership(data.myMembership || null);
-      setMembers(data.members || []);
+      // Full roster rides on the project payload for the owning NGO.
+      setMembers(data.isOwner ? (data.project?.members || []) : []);
       setError("");
     } catch (err: any) {
       setError(err.message || "Could not load this project.");
@@ -370,6 +374,43 @@ export default function ProjectDetailPage() {
                       </Button>
                     </Link>
                   )}
+                </CardContent>
+              </Card>
+            )}
+
+            {isOwner && members.length > 0 && (
+              <Card className="border-purple-100">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-serif text-lg">
+                    <Users className="h-4 w-4" />
+                    Who has joined
+                  </CardTitle>
+                  <p className="text-sm text-stone-500">
+                    Community volunteers on this project, with their contact details.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="rounded-lg border border-emerald-100 bg-stone-50/60 p-3 text-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold text-stone-800">{member.name}</p>
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                          {member.roleTitle}
+                        </span>
+                      </div>
+                      <ul className="mt-1 space-y-0.5 text-xs text-stone-600">
+                        <li>Email: {member.email}</li>
+                        {member.phone && <li>Phone: {member.phone}</li>}
+                        {member.location && <li>Location: {member.location}</li>}
+                        <li className="text-purple-700">
+                          Joined {timeAgo(String(member.joinedAt))}
+                        </li>
+                      </ul>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             )}

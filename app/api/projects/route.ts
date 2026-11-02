@@ -8,6 +8,7 @@ import {
   isReferralValid,
   isValidCategory,
   isValidObjectIdList,
+  membersForProjects,
   ngoIdentity,
   normalizeRoles,
   roleCountsForProjects,
@@ -78,9 +79,17 @@ export async function GET(req: NextRequest) {
 
     const counts = await roleCountsForProjects(projects.map((p) => String(p._id)));
 
+    // The owning NGO gets the full roster (names + contact details) for its
+    // own projects; the public board only ever sees counts.
+    const rosters = mine
+      ? await membersForProjects(projects.map((p) => String(p._id)))
+      : {};
+
     return NextResponse.json({
       success: true,
-      projects: projects.map((project) => serializeProject(project, counts[String(project._id)])),
+      projects: projects.map((project) =>
+        serializeProject(project, counts[String(project._id)], rosters[String(project._id)])
+      ),
       total,
       page,
       pages: Math.max(Math.ceil(total / limit), 1),

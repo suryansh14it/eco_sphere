@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { emailExists, createUser } from '@/lib/auth';
 import { setSessionCookie } from '@/lib/session';
+import { isReferralValid } from '@/lib/project-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -81,6 +82,15 @@ export async function POST(request: NextRequest) {
       bio
     };
 
+    // NGOs must come in with the shared government referral ID - same soft
+    // gate as project creation (ref1234, tolerant of case and whitespace).
+    if (role === 'ngo' && !isReferralValid(String(body.referralId || ''))) {
+      return NextResponse.json(
+        { error: 'Invalid referral ID. NGOs need the referral ID issued by the government office.' },
+        { status: 403 }
+      );
+    }
+
     // Add role-specific fields
     if (role === 'government') {
       userData.department = department;
@@ -93,6 +103,7 @@ export async function POST(request: NextRequest) {
       userData.organizationName = organizationName;
       userData.registrationNumber = registrationNumber;
       userData.focusAreas = focusAreas || [];
+      userData.referralVerifiedAt = new Date();
     }
 
     // Create user
@@ -144,8 +155,8 @@ function validateRoleFields(role: string, body: any) {
       }
       break;
     case 'ngo':
-      if (!body.organizationName || !body.registrationNumber) {
-        return { error: 'Organization name and registration number are required for NGOs' };
+      if (!body.organizationName || !body.registrationNumber || !isReferralValid(String(body.referralId || ''))) {
+        return { error: 'Organization name, registration number, and a valid government referral ID are required for NGOs' };
       }
       break;
     default:

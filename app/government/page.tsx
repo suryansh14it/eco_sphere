@@ -20,6 +20,7 @@ import {
   Search,
   Bell,
   User,
+  Users,
   LayoutDashboard,
   FileText,
   Clock,
@@ -171,7 +172,6 @@ export default function GovernmentDashboard() {
   // State for dynamic project requests
   const [projectRequests, setProjectRequests] = useState<GovNewRequestDetail[]>([])
   const [isLoadingRequests, setIsLoadingRequests] = useState(true)
-  const [isAddingTestData, setIsAddingTestData] = useState(false)
 
   // Fetch project requests from database
   const fetchProjectRequests = async () => {
@@ -179,16 +179,11 @@ export default function GovernmentDashboard() {
       setIsLoadingRequests(true)
 
       // Fetch ALL projects from database - no filtering, no auth required
-      const [localInitiativesRes, researcherProposalsRes] = await Promise.all([
-        fetch('/api/ngo/local-initiative'), // Remove limit to get all
-        fetch('/api/ngo/researcher-proposal') // Remove limit to get all
-      ])
+      const localInitiativesRes = await fetch('/api/ngo/local-initiative')
 
       const localInitiativesData = await localInitiativesRes.json()
-      const researcherProposalsData = await researcherProposalsRes.json()
 
       console.log('🔍 Local initiatives response:', localInitiativesData)
-      console.log('🔍 Researcher proposals response:', researcherProposalsData)
 
       const dbRequests: GovNewRequestDetail[] = []
 
@@ -197,13 +192,6 @@ export default function GovernmentDashboard() {
         console.log('📊 Local initiatives count:', localInitiativesData.initiatives?.length || 0)
         if (localInitiativesData.initiatives?.length > 0) {
           console.log('📋 Sample local initiative:', localInitiativesData.initiatives[0])
-        }
-      }
-
-      if (researcherProposalsData.success) {
-        console.log('📊 Researcher proposals count:', researcherProposalsData.proposals?.length || 0)
-        if (researcherProposalsData.proposals?.length > 0) {
-          console.log('📋 Sample researcher proposal:', researcherProposalsData.proposals[0])
         }
       }
 
@@ -251,95 +239,26 @@ export default function GovernmentDashboard() {
             coordinator: {
               name: "NGO Coordinator",
               contact: "Contact via platform"
-            }
+            },
+            // Proof of community backing requested with the funds: joined volunteers
+            volunteerEvidence: {
+              projectId: initiative.projectId || "",
+              volunteerCount: Number(initiative.volunteerCount) || (initiative.volunteers?.length || 0),
+              volunteerNames: (initiative.volunteers || []).map((v: any) => `${v.name}${v.roleTitle ? ` (${v.roleTitle})` : ""}`),
+            },
           })
         })
       }
 
-      // Map NGO Researcher Proposals to GovNewRequestDetail format
-      if (researcherProposalsData.success && researcherProposalsData.proposals) {
-        researcherProposalsData.proposals.forEach((proposal: any) => {
-          // Calculate commission percentages if funding is available
-          const totalFunding = parseFloat(proposal.funding?.replace(/[₹,Cr]/g, '') || '0')
-          const ngoCommissionAmount = parseFloat(proposal.ngoCommission?.replace(/[₹,L]/g, '') || '0')
-          const researcherCommissionAmount = parseFloat(proposal.researcherCommission?.replace(/[₹,L]/g, '') || '0')
-
-          const ngoCommissionPercent = totalFunding > 0 ? (ngoCommissionAmount / totalFunding) * 100 : 0
-          const researcherCommissionPercent = totalFunding > 0 ? (researcherCommissionAmount / totalFunding) * 100 : 0
-
-          dbRequests.push({
-            id: `researcher-${proposal._id}`,
-            title: proposal.title,
-            organization: proposal.ngoName,
-            location: proposal.location,
-            priority: "High" as const, // Researcher proposals typically high priority
-            description: proposal.description,
-            requestedFunding: proposal.funding,
-            fundingBreakdown: {
-              total: proposal.funding,
-              projectAmount: proposal.funding,
-              ngoCommission: proposal.ngoCommission || "₹0",
-              researcherCommission: proposal.researcherCommission || "₹0",
-              ngoCommissionPercent: Math.round(ngoCommissionPercent * 10) / 10,
-              researcherCommissionPercent: Math.round(researcherCommissionPercent * 10) / 10,
-            },
-            objectives: proposal.categories?.length > 0 ? proposal.categories : [proposal.proposalSummary || "Research-backed environmental objectives"],
-            proposedTimeline: {
-              start: proposal.expectedStartDate || "TBD",
-              end: "TBD" // Calculate from timeline if needed
-            },
-            proposedImpact: {
-              summary: proposal.proposalSummary || "Research-driven environmental impact"
-            },
-            requirements: proposal.sdgGoals?.length > 0 ? proposal.sdgGoals : ["Research methodology implementation", "Academic collaboration"],
-            coordinator: {
-              name: proposal.researcherName || "Research Coordinator",
-              contact: proposal.researcherPhone || "Contact via platform"
-            }
-          })
-        })
-      }
-
-      // Merge with static data
-      console.log('📊 Total DB requests found:', dbRequests.length)
-      console.log('📊 DB requests:', dbRequests)
-      setProjectRequests([...dbRequests, ...staticProjectRequests])
+      // Only real funding requests submitted through the platform
+      setProjectRequests([...dbRequests])
 
     } catch (error) {
       console.error('Error fetching project requests:', error)
-      // Fallback to static data only
-      setProjectRequests(staticProjectRequests)
+      // Fallback to whatever we already have
+      setProjectRequests([])
     } finally {
       setIsLoadingRequests(false)
-    }
-  }
-
-  // Function to add test data to database
-  const addTestData = async () => {
-    try {
-      setIsAddingTestData(true)
-
-      const response = await fetch('/api/test-data', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        console.log('✅ Test data added:', result)
-        // Refresh the project requests after adding test data
-        await fetchProjectRequests()
-      } else {
-        console.error('❌ Failed to add test data:', result)
-      }
-
-    } catch (error) {
-      console.error('❌ Error adding test data:', error)
-    } finally {
-      setIsAddingTestData(false)
     }
   }
 
@@ -787,161 +706,6 @@ export default function GovernmentDashboard() {
     }
   }
 
-  // Static project data with descriptions for AI analysis
-  const staticProjectRequests: GovNewRequestDetail[] = [
-    {
-      id: "req-urban-forest",
-      title: "Urban Forest Restoration",
-      organization: "Green Cities NGO",
-      location: "Mumbai, MH",
-      priority: "High",
-      description: "Comprehensive urban forest restoration project aimed at planting 10,000 native trees across Mumbai's residential and commercial areas. The project focuses on improving air quality, reducing urban heat island effect, and creating green corridors for wildlife. Includes community engagement programs and long-term maintenance plans.",
-      requestedFunding: "₹1.5Cr",
-      fundingBreakdown: {
-        total: "₹1.5Cr",
-        projectAmount: "₹1.35Cr",
-        ngoCommission: "₹10L",
-        researcherCommission: "₹5L",
-        ngoCommissionPercent: 6.7,
-        researcherCommissionPercent: 3.3,
-      },
-      objectives: ["Plant 10,000 native trees in 12 wards", "Establish 5 community nurseries", "Develop maintenance MoUs with RWAs"],
-      proposedTimeline: { start: "Oct 2025", end: "Sep 2026" },
-      proposedImpact: { summary: "Reduce urban heat islands and sequester carbon.", co2ReductionTons: 1200, treesPlanted: 10000, areaRestoredHa: 24 },
-      requirements: ["Municipal permissions", "Water access at sites", "Nursery setup space"],
-      coordinator: { name: "Anita Sharma", contact: "+91-98XXXXXX12" },
-      attachments: [{ name: "Project Proposal.pdf" }]
-    },
-    {
-      id: "req-marine-cleanup",
-      title: "Marine Cleanup Initiative",
-      organization: "Ocean Guardians",
-      location: "Chennai, TN",
-      priority: "Medium",
-      description: "Large-scale marine cleanup initiative targeting plastic pollution in Chennai's coastal waters. The project includes advanced filtration systems, community beach cleanups, and educational programs for local fishing communities. Expected to clean 50 square kilometers of ocean area and remove 500 tons of plastic waste.",
-      requestedFunding: "₹80L",
-      fundingBreakdown: {
-        total: "₹80L",
-        projectAmount: "₹72L",
-        ngoCommission: "₹5L",
-        researcherCommission: "₹3L",
-        ngoCommissionPercent: 6.25,
-        researcherCommissionPercent: 3.75,
-      },
-      objectives: ["Deploy 10 floating booms", "Conduct 24 community cleanups", "Set up recycling partnerships"],
-      proposedTimeline: { start: "Sep 2025", end: "Mar 2026" },
-      proposedImpact: { summary: "Reduce marine plastic and improve coastal health.", areaRestoredHa: 5, speciesProtected: 12 },
-      requirements: ["Port permissions", "Waste processing tie-up"],
-      coordinator: { name: "R. Prakash", contact: "+91-97XXXXXX45" }
-    },
-    {
-      id: "req-solar-pune",
-      title: "Solar Panel Installation",
-      organization: "Renewable Future",
-      location: "Pune, MH",
-      priority: "High",
-      description: "Installation of solar panels across 200 government buildings and schools in Pune district. The project aims to generate 5MW of clean energy, reduce carbon emissions by 3,000 tons annually, and provide energy independence for public institutions. Includes training programs for local technicians.",
-      requestedFunding: "₹2.7Cr",
-      fundingBreakdown: {
-        total: "₹2.7Cr",
-        projectAmount: "₹2.52Cr",
-        ngoCommission: "₹12L",
-        researcherCommission: "₹6L",
-        ngoCommissionPercent: 4.4,
-        researcherCommissionPercent: 2.2,
-      },
-      objectives: ["Install 5MW capacity", "Train 60 local technicians"],
-      proposedTimeline: { start: "Aug 2025", end: "Aug 2026" },
-      proposedImpact: { summary: "Clean energy generation and emissions reduction.", co2ReductionTons: 3000 },
-      requirements: ["Building access", "DISCOM approvals"]
-    },
-    {
-      id: "req-himalayan-glacier",
-      title: "Himalayan Glacier Monitoring",
-      organization: "Himalayan Ecosystem Studies",
-      location: "Shimla, HP",
-      priority: "High",
-      description: "Implementation of advanced remote sensing technology to monitor glacial retreat in the Himalayan region. The project will track 15 major glaciers, analyze meltwater patterns, and develop early warning systems for glacial lake outburst floods (GLOFs). Includes training of local communities and creation of disaster response protocols.",
-      requestedFunding: "₹3.8Cr",
-      fundingBreakdown: {
-        total: "₹3.8Cr",
-        projectAmount: "₹3.55Cr",
-        ngoCommission: "₹18L",
-        researcherCommission: "₹7L",
-        ngoCommissionPercent: 4.7,
-        researcherCommissionPercent: 1.8,
-      },
-      objectives: ["Deploy 15 sensors", "Create GLOF early warning"],
-      proposedTimeline: { start: "Oct 2025", end: "Dec 2026" },
-      proposedImpact: { summary: "Disaster risk reduction and research." },
-      requirements: ["Permits in protected zones", "Satellite data access"],
-      coordinator: { name: "Dr. L. Negi", contact: "+91-96XXXXXX32" }
-    },
-    {
-      id: "req-sustainable-fishery",
-      title: "Sustainable Fishery Development",
-      organization: "Coastal Communities Alliance",
-      location: "Kochi, KL",
-      priority: "Medium",
-      description: "Comprehensive program to transform traditional fishing practices into sustainable operations along Kerala's coast. Includes deployment of selective fishing gear, establishment of no-fishing zones, training on sustainable harvesting methods, and direct market linkages to ensure fair prices for fisher communities.",
-      requestedFunding: "₹1.2Cr",
-      fundingBreakdown: {
-        total: "₹1.2Cr",
-        projectAmount: "₹1.1Cr",
-        ngoCommission: "₹6L",
-        researcherCommission: "₹4L",
-        ngoCommissionPercent: 5,
-        researcherCommissionPercent: 3.3,
-      },
-      objectives: ["Establish 3 no-fishing zones", "Train 500 fishers"],
-      proposedTimeline: { start: "Sep 2025", end: "Sep 2026" },
-      proposedImpact: { summary: "Sustainable fisheries and biodiversity protection.", speciesProtected: 8 },
-      requirements: ["Regulatory approvals", "Community consent"]
-    },
-    {
-      id: "req-rural-microgrids",
-      title: "Rural Solar Microgrids",
-      organization: "Energy Access India",
-      location: "Ranchi, JH",
-      priority: "High",
-      description: "Development of solar microgrids in 75 off-grid villages in Jharkhand, providing renewable electricity to approximately 15,000 residents. The project includes installation of 3MW decentralized solar capacity, battery storage systems, mini-distribution networks, and training of local technicians for maintenance and operations.",
-      requestedFunding: "₹4.5Cr",
-      fundingBreakdown: {
-        total: "₹4.5Cr",
-        projectAmount: "₹4.2Cr",
-        ngoCommission: "₹20L",
-        researcherCommission: "₹10L",
-        ngoCommissionPercent: 4.4,
-        researcherCommissionPercent: 2.2,
-      },
-      objectives: ["Install 3MW microgrids", "Electrify 75 villages"],
-      proposedTimeline: { start: "Aug 2025", end: "Dec 2026" },
-      proposedImpact: { summary: "Energy access and social upliftment." },
-      requirements: ["Land use permissions", "Battery supply contracts"]
-    },
-    {
-      id: "req-western-ghats",
-      title: "Western Ghats Biodiversity Conservation",
-      organization: "Forest Guardians Network",
-      location: "Coimbatore, TN",
-      priority: "Medium",
-      description: "Integrated conservation initiative in the Western Ghats focusing on protecting endemic species and their habitats. The project combines scientific research, anti-poaching patrols, habitat restoration, and community-based conservation. Targets protection of 25 endangered species through collaborative efforts with local tribal communities.",
-      requestedFunding: "₹2.2Cr",
-      fundingBreakdown: {
-        total: "₹2.2Cr",
-        projectAmount: "₹2.04Cr",
-        ngoCommission: "₹10L",
-        researcherCommission: "₹6L",
-        ngoCommissionPercent: 4.5,
-        researcherCommissionPercent: 2.7,
-      },
-      objectives: ["Anti-poaching patrols", "Habitat restoration"],
-      proposedTimeline: { start: "Sep 2025", end: "Sep 2027" },
-      proposedImpact: { summary: "Habitat protection and species conservation.", speciesProtected: 25 },
-      requirements: ["Forest dept coordination"]
-    }
-  ]
-
   const handleSidebarClick = (section: string) => {
     setActiveSection(section)
     console.log("[v0] Sidebar section changed to:", section)
@@ -1083,25 +847,7 @@ export default function GovernmentDashboard() {
                       <div className="text-center py-8 text-muted-foreground">
                         <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
                         <p>No project requests found</p>
-                        <p className="text-sm mb-4">New requests will appear here when submitted</p>
-                        <Button
-                          onClick={addTestData}
-                          disabled={isAddingTestData}
-                          variant="outline"
-                          className="gap-2"
-                        >
-                          {isAddingTestData ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                              Adding Test Data...
-                            </>
-                          ) : (
-                            <>
-                              <FileText className="w-4 h-4" />
-                              Add Test Projects
-                            </>
-                          )}
-                        </Button>
+                        <p className="text-sm">New requests will appear here when an NGO submits a funding request</p>
                       </div>
                     ) : projectRequests.map((request, index) => (
                       <div
@@ -1124,6 +870,13 @@ export default function GovernmentDashboard() {
                               <DollarSign className="w-3 h-3 mr-1" />
                               {request.requestedFunding}
                             </span>
+                            {request.volunteerEvidence?.volunteerCount > 0 && (
+                              <span className="flex items-center font-medium text-emerald-700">
+                                <Users className="w-3 h-3 mr-1" />
+                                {request.volunteerEvidence.volunteerCount} volunteer
+                                {request.volunteerEvidence.volunteerCount === 1 ? "" : "s"} joined
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1624,25 +1377,7 @@ export default function GovernmentDashboard() {
                   <div className="text-center py-8 text-muted-foreground">
                     <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
                     <p>No project requests found</p>
-                    <p className="text-sm mb-4">New requests will appear here when submitted</p>
-                    <Button
-                      onClick={addTestData}
-                      disabled={isAddingTestData}
-                      variant="outline"
-                      className="gap-2"
-                    >
-                      {isAddingTestData ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                          Adding Test Data...
-                        </>
-                      ) : (
-                        <>
-                          <FileText className="w-4 h-4" />
-                          Add Test Projects
-                        </>
-                      )}
-                    </Button>
+                    <p className="text-sm">New requests will appear here when an NGO submits a funding request</p>
                   </div>
                 ) : projectRequests.map((request, index) => (
                   <div
@@ -1665,6 +1400,13 @@ export default function GovernmentDashboard() {
                           <DollarSign className="w-3 h-3 mr-1" />
                           {request.requestedFunding}
                         </span>
+                        {request.volunteerEvidence?.volunteerCount > 0 && (
+                          <span className="flex items-center font-medium text-emerald-700">
+                            <Users className="w-3 h-3 mr-1" />
+                            {request.volunteerEvidence.volunteerCount} volunteer
+                            {request.volunteerEvidence.volunteerCount === 1 ? "" : "s"} joined
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

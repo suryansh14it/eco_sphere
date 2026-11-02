@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import Project, { IRole, PROJECT_CATEGORIES } from '@/models/Project';
-import ProjectMember from '@/models/ProjectMember';
-import { IUser } from '@/models/User';
+import ProjectMember, { IProjectMember } from '@/models/ProjectMember';
+import User, { IUser } from '@/models/User';
 
 /**
  * Referral gate.
@@ -61,14 +61,82 @@ export async function roleCountForProject(projectId: string): Promise<GroupedRol
   return grouped[projectId] || {};
 }
 
+export interface SerializedRosterMember {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  roleId: string;
+  /** Filled in by the caller from the project's roles; empty here. */
+  roleTitle: string;
+  joinedAt: Date;
+}
+
+/**
+ * Full roster (joined volunteers + their profile details) keyed by project.
+ * ProjectMember snapshots only id/name/email, so profile extras (phone,
+ * location) are joined from the User collection.
+ */
+export async function membersForProjects(
+  projectIds: string[]
+): Promise<Record<string, SerializedRosterMember[]>> {
+  if (projectIds.length === 0) return {};
+
+  const rows = (await ProjectMember.find({
+    projectId: { $in: projectIds },
+    status: 'joined',
+  })
+    .sort({ joinedAt: 1 })
+    .lean()
+    .exec()) as unknown as IProjectMember[];
+
+  const userIds = [...new Set(rows.map((m) => String(m.user.id)))];
+  const users = userIds.length
+    ? ((await User.find({ _id: { $in: userIds } })
+        .select('phone location')
+        .lean()) as any[])
+    : [];
+  const profileById = new Map(users.map((u) => [String(u._id), u]));
+
+  const grouped: Record<string, SerializedRosterMember[]> = {};
+  for (const member of rows) {
+    const key = String(member.projectId);
+    grouped[key] = grouped[key] || [];
+    const profile = profileById.get(String(member.user.id)) || {};
+    grouped[key].push({
+      id: String(member._id),
+      userId: String(member.user.id),
+      name: member.user.name,
+      email: member.user.email,
+      phone: String(profile.phone || ''),
+      location: String(profile.location || ''),
+      roleId: member.roleId,
+      roleTitle: '',
+      joinedAt: member.joinedAt,
+    });
+  }
+  return grouped;
+}
+
 /** Mongoose lean docs carry ObjectIds; JSON responses want strings. */
-export function serializeProject(project: any, counts?: GroupedRoleCounts[string]) {
+export function serializeProject(
+  project: any,
+  counts?: GroupedRoleCounts[string],
+  roster?: SerializedRosterMember[]
+) {
   const roles = (project.roles || []).map((role: any) => ({
     id: String(role._id),
     title: role.title,
     description: role.description || '',
     slots: role.slots,
     filled: counts?.[String(role._id)] || 0,
+  }));
+
+  const members = (roster || []).map((m) => ({
+    ...m,
+    roleTitle: roles.find((r: any) => r.id === m.roleId)?.title || 'Volunteer',
   }));
 
   return {
@@ -84,6 +152,7 @@ export function serializeProject(project: any, counts?: GroupedRoleCounts[string
     issueIds: (project.issueIds || []).map(String),
     referralVerifiedAt: project.referralVerifiedAt || null,
     roles,
+    members,
     totalSlots: roles.reduce((sum: number, role: any) => sum + role.slots, 0),
     totalFilled: roles.reduce((sum: number, role: any) => sum + role.filled, 0),
     isReferralVerified: Boolean(project.referralVerifiedAt),

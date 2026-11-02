@@ -47,6 +47,18 @@ interface RoleItem {
   filled: number;
 }
 
+export interface VolunteerMember {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  roleId: string;
+  roleTitle: string;
+  joinedAt: string | Date;
+}
+
 export interface ProjectItem {
   id: string;
   title: string;
@@ -59,6 +71,7 @@ export interface ProjectItem {
   status: string;
   isReferralVerified?: boolean;
   roles: RoleItem[];
+  members?: VolunteerMember[];
   totalSlots: number;
   totalFilled: number;
   createdAt?: string;
@@ -323,6 +336,46 @@ export function ProjectFeed({ mode = "public" }: ProjectFeedProps) {
                         ))}
                       </div>
                     ) : null}
+
+                    {mode === "mine" && (project.members?.length || 0) > 0 && (
+                      <div className="rounded-lg border border-purple-100 bg-purple-50/50 p-3">
+                        <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-purple-900">
+                          <Users className="h-3.5 w-3.5" />
+                          Volunteers joined ({project.members!.length})
+                        </p>
+                        <div className="space-y-2">
+                          {project.members!.map((member) => (
+                            <div
+                              key={member.id}
+                              className="rounded-md border border-purple-100 bg-white px-2.5 py-2 text-xs"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-semibold text-stone-800">{member.name}</span>
+                                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                                  {member.roleTitle}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-stone-600">Email: {member.email}</p>
+                              {member.phone && <p className="text-stone-600">Phone: {member.phone}</p>}
+                              {member.location && (
+                                <p className="text-stone-600">Location: {member.location}</p>
+                              )}
+                              {member.joinedAt && (
+                                <p className="mt-1 text-purple-700">
+                                  Joined {timeAgo(String(member.joinedAt))}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {mode === "mine" && (project.members?.length || 0) === 0 && (
+                      <p className="rounded-lg border border-dashed border-purple-200 p-2 text-xs text-stone-500">
+                        No volunteers yet - share the project link to recruit.
+                      </p>
+                    )}
 
                     <div className="mt-auto space-y-2 text-xs text-stone-500">
                       <div className="flex items-center gap-1.5">

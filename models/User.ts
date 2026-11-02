@@ -57,6 +57,7 @@ export interface IUser extends Document {
   organizationName?: string;
   registrationNumber?: string;
   focusAreas?: string[];
+  referralVerifiedAt?: Date;
   
   // Common fields
   phone?: string;
@@ -168,6 +169,11 @@ const userSchema = new mongoose.Schema<IUser>({
   focusAreas: [{
     type: String
   }],
+  // Referral gate: NGOs can only sign up (and later list projects) with the
+  // shared government referral ID. Kept for audit; soft gate only.
+  referralVerifiedAt: {
+    type: Date
+  },
   
   // User progression fields
   xpPoints: {

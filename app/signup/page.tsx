@@ -39,6 +39,7 @@ export default function SignupPage() {
   const [organizationName, setOrganizationName] = useState("")
   const [registrationNumber, setRegistrationNumber] = useState("")
   const [focusAreas, setFocusAreas] = useState("")
+  const [referralId, setReferralId] = useState("")
   
   const { signup } = useAuth()
 
@@ -95,8 +96,12 @@ export default function SignupPage() {
       toast.error("Please fill in your location");
       isValid = false;
     }
-    if (selectedRole === 'ngo' && (!organizationName || !registrationNumber)) {
-      toast.error("Please fill in all NGO fields");
+    if (selectedRole === 'ngo' && (!organizationName || !registrationNumber || !referralId)) {
+      toast.error("Please fill in all NGO fields, including the government referral ID");
+      isValid = false;
+    }
+    if (selectedRole === 'ngo' && referralId.trim().toLowerCase() !== "ref1234") {
+      toast.error("Invalid referral ID. Use the referral ID issued to your NGO by the government office.");
       isValid = false;
     }
 
@@ -115,7 +120,7 @@ export default function SignupPage() {
         // Role-specific fields
         ...(selectedRole === 'government' && { department, position, governmentId }),
         ...(selectedRole === 'user' && { location, interests: interests.split(',').map(i => i.trim()).filter(Boolean) }),
-        ...(selectedRole === 'ngo' && { organizationName, registrationNumber, focusAreas: focusAreas.split(',').map(f => f.trim()).filter(Boolean) })
+        ...(selectedRole === 'ngo' && { organizationName, registrationNumber, focusAreas: focusAreas.split(',').map(f => f.trim()).filter(Boolean), referralId: referralId.trim() })
       };
 
       await signup(userData);
@@ -335,6 +340,21 @@ export default function SignupPage() {
                           value={registrationNumber}
                           onChange={(e) => setRegistrationNumber(e.target.value)}
                         />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-2 block">
+                          Government Referral ID <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          placeholder="Referral ID from your government office"
+                          className="glass border-border/30 font-mono"
+                          value={referralId}
+                          onChange={(e) => setReferralId(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Issued to your organisation by the local government office.{" "}
+                          <span className="font-mono">ref1234</span> works for every NGO.
+                        </p>
                       </div>
                       <div>
                         <label className="text-sm font-medium text-foreground mb-2 block">Focus Areas</label>
