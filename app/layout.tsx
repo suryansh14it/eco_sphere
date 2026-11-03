@@ -5,6 +5,9 @@ import Script from "next/script"
 import "./globals.css"
 import { AuthProvider } from "@/components/auth-provider"
 import { Toaster } from "@/components/ui/toaster"
+// Login/signup pages raise toasts through sonner instead of `useToast`, so mount
+// the sonner Toaster alongside the shadcn one.
+import { Toaster as SonnerToaster } from "@/components/ui/sonner"
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -36,6 +39,7 @@ export default function RootLayout({
         <AuthProvider>
           {children}
           <Toaster />
+          <SonnerToaster richColors position="top-right" />
         </AuthProvider>
       </body>
     </html>

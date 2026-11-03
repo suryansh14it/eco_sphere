@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
+  Bell,
   Calendar,
   CheckCircle2,
   HandHeart,
@@ -50,6 +51,13 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<ProjectItem | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [members, setMembers] = useState<RosterMember[]>([]);
+  const [management, setManagement] = useState<{
+    progress: number;
+    completedAt?: string | null;
+    media?: { kind: string; url: string; name?: string }[];
+    documents?: { title: string; url?: string }[];
+    notices?: { title: string; body: string; createdAt: string | Date }[];
+  } | null>(null);
   const [myMembership, setMyMembership] = useState<{
     id: string;
     joinStatus: "joined" | "removed";
@@ -71,6 +79,7 @@ export default function ProjectDetailPage() {
       setProject(data.project);
       setIsOwner(Boolean(data.isOwner));
       setMyMembership(data.myMembership || null);
+      setManagement(data.management || null);
       // Full roster rides on the project payload for the owning NGO.
       setMembers(data.isOwner ? (data.project?.members || []) : []);
       setError("");
@@ -377,6 +386,62 @@ export default function ProjectDetailPage() {
                 </CardContent>
               </Card>
             )}
+
+            {management && (management.media?.length || management.notices?.length || management.progress > 0) > 0 ? null : null}
+
+            {(management?.media?.length || 0) > 0 || (management?.notices?.length || 0) > 0 ? (
+              <Card className="mb-6 border-emerald-100">
+                <CardHeader>
+                  <CardTitle className="font-serif text-lg">Updates from {project.ngo?.name || "the organiser"}</CardTitle>
+                  {management?.progress != null && management.progress > 0 && (
+                    <div className="mt-1">
+                      <div className="flex items-center gap-3">
+                        <div className="h-3 flex-1 rounded-full bg-stone-100">
+                          <div
+                            className="h-3 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all"
+                            style={{ width: `${management.progress}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium text-purple-600">{management.progress}%</span>
+                      </div>
+                    </div>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {(management?.notices?.length || 0) > 0 && (
+                    <div className="space-y-2">
+                      {management!.notices!.slice(0, 5).map((n, i) => (
+                        <div key={i} className="rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2">
+                          <p className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+                            <Bell className="h-3.5 w-3.5" />
+                            {n.title}
+                          </p>
+                          <p className="mt-0.5 text-sm text-stone-600">{n.body}</p>
+                          {n.createdAt && (
+                            <p className="mt-1 text-xs text-stone-400">{timeAgo(String(n.createdAt))}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {(management?.media?.length || 0) > 0 && (
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                      {management!.media!.map((m, i) => (
+                        <div key={i} className="overflow-hidden rounded-lg border border-emerald-100">
+                          {m.kind === "video" ? (
+                            <video src={m.url} controls className="h-28 w-full object-cover" />
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={m.url} alt={m.name || "project media"} className="h-28 w-full object-cover" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
 
             {isOwner && members.length > 0 && (
               <Card className="border-purple-100">

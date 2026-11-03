@@ -37,7 +37,7 @@ import {
   Building,
   HandHeart
 } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 
@@ -58,6 +58,12 @@ export default function NGODashboard() {
   // FormData, so reading `formData.get('department')` silently sends null.
   const [fundingDepartment, setFundingDepartment] = useState("")
   const [fundingExperienceLevel, setFundingExperienceLevel] = useState("")
+
+  // Ongoing Project Management: everything this NGO has undertaken
+  // (volunteer projects + adopted public issues), split live / completed.
+  const [managedLive, setManagedLive] = useState<any[]>([])
+  const [managedCompleted, setManagedCompleted] = useState<any[]>([])
+  const [managedLoading, setManagedLoading] = useState(true)
 
   // Redirect users to their correct dashboard based on role
   useEffect(() => {
@@ -97,6 +103,29 @@ export default function NGODashboard() {
       cancelled = true;
     };
   }, [activeSection, user, loading]);
+
+  // Undertaken projects (volunteer + adopted issues) for management and the
+  // success-stories strip; refreshed when the management section is opened.
+  const loadManaged = useCallback(async () => {
+    setManagedLoading(true);
+    try {
+      const res = await fetch('/api/ngo/managed-projects', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        setManagedLive(data.live || []);
+        setManagedCompleted(data.completed || []);
+      }
+    } catch (error) {
+      console.error('Error loading undertaken projects:', error);
+    } finally {
+      setManagedLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (loading || user?.role !== 'ngo') return;
+    loadManaged();
+  }, [user, loading, loadManaged]);
 
   // Show loading only while auth provider is loading
   if (loading) {
@@ -370,85 +399,59 @@ export default function NGODashboard() {
                     <MessageSquare className="w-5 h-5 text-green-600" />
                     Community Feedback & Success Stories
                   </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Projects you have completed — highlighted on your dashboard once you mark them done
+                    in Ongoing Project Management.
+                  </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[
-                      {
-                        project: "Versova Beach Transformation",
-                        author: "Afroz Shah",
-                        role: "Project Leader",
-                        feedback:
-                          "Our Versova Beach cleanup has removed over 9 million kg of plastic waste and transformed what was once called 'garbage beach'. We now have Olive Ridley turtles nesting here after 20 years!",
-                        rating: 5,
-                        date: "3 days ago",
-                        image: "beach",
-                      },
-                      {
-                        project: "Sundarbans Mangrove Restoration",
-                        author: "Priya Mondal",
-                        role: "Community Coordinator",
-                        feedback:
-                          "Our community-led mangrove restoration has planted 50,000+ saplings across 25 hectares. Local fishing families report 30% increase in catch due to improved marine ecosystems.",
-                        rating: 5,
-                        date: "1 week ago",
-                        image: "mangrove",
-                      },
-                      {
-                        project: "Ladakh Artificial Glacier",
-                        author: "Sonam Wangchuk",
-                        role: "Project Engineer",
-                        feedback:
-                          "Our ice stupa artificial glaciers have provided 2 million liters of water to 5 villages during crucial spring planting season. Crop yields have increased by 40% this year!",
-                        rating: 5,
-                        date: "2 weeks ago",
-                        image: "glacier",
-                      },
-                      {
-                        project: "Sikkim Organic Farming Transition",
-                        author: "Tenzin Lepcha",
-                        role: "Regional Coordinator",
-                        feedback:
-                          "100% organic certification achieved across 12 villages! Farmers report 25% premium on their produce and soil health has dramatically improved with 18% higher nutrient content.",
-                        rating: 5,
-                        date: "3 weeks ago",
-                        image: "farm",
-                      },
-                    ].map((feedback, index) => (
-                      <div key={index} className="p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                        <div className="w-full h-32 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg mb-4 flex items-center justify-center">
-                          <CheckCircle className="w-8 h-8 text-green-600" />
-                        </div>
+                  {managedLoading ? (
+                    <p className="text-sm text-muted-foreground py-4">Loading completed projects...</p>
+                  ) : managedCompleted.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4">
+                      No completed projects yet. Mark a project completed in Ongoing Project Management and it will appear here.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {managedCompleted.slice(0, 6).map((project) => {
+                        const cover = project.media?.find((m: any) => m.kind === 'image');
+                        return (
+                          <Link key={project.key} href={`/ngo/project-management/${project.key}`} className="group">
+                            <div className="p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors h-full">
+                              <div className="w-full h-32 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                                {cover ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={cover.url} alt={project.title} className="w-full h-full object-cover" />
+                                ) : (
+                                  <CheckCircle className="w-8 h-8 text-green-600" />
+                                )}
+                              </div>
 
-                        <h4 className="font-medium text-foreground mb-2">{feedback.project}</h4>
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-3">{feedback.feedback}</p>
+                              <h4 className="font-medium text-foreground mb-2 group-hover:underline">{project.title}</h4>
+                              {project.completedSummary ? (
+                                <p className="text-sm text-muted-foreground mb-3 line-clamp-3">{project.completedSummary}</p>
+                              ) : (
+                                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{project.description}</p>
+                              )}
 
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <p className="text-sm font-medium text-foreground">{feedback.author}</p>
-                            <p className="text-xs text-muted-foreground">{feedback.role}</p>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {[...Array(feedback.rating)].map((_, i) => (
-                              <Star key={i} className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{feedback.date}</span>
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="sm" className="h-6 px-2">
-                              <Heart className="w-3 h-3" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-6 px-2">
-                              <Share2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                              <div className="flex flex-wrap items-center justify-between text-xs text-stone-500">
+                                <span className="flex items-center gap-1">
+                                  <Users className="w-3 h-3" />
+                                  {project.memberCount} participant{project.memberCount === 1 ? "" : "s"}
+                                </span>
+                                <span>
+                                  Completed{" "}
+                                  {project.completedAt
+                                    ? new Date(project.completedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                                    : "recently"}
+                                </span>
+                              </div>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </>
@@ -854,477 +857,172 @@ export default function NGODashboard() {
             </Card>
           )}
 
-          {/* Project Management Section */}
+          {/* Ongoing Project Management Section */}
           {activeSection === "project-management" && (
             <Card className="glass">
               <CardHeader>
-                <CardTitle className="text-lg font-serif">Ongoing Projects Management</CardTitle>
+                <CardTitle className="text-lg font-serif">Ongoing Project Management</CardTitle>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Projects you have undertaken — the volunteer projects you posted and the public
+                  issues you adopted. Track progress, share media and notices, run attendance, and
+                  complete projects.
+                </p>
               </CardHeader>
               <CardContent>
-                <Tabs defaultValue="active" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="active">Active Projects</TabsTrigger>
-                    <TabsTrigger value="planning">In Planning</TabsTrigger>
-                    <TabsTrigger value="completed">Recently Completed</TabsTrigger>
+                <Tabs defaultValue="live" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="live">Live Projects ({managedLive.length})</TabsTrigger>
+                    <TabsTrigger value="completed">Recently Completed ({managedCompleted.length})</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="active" className="mt-6">
+                  <TabsContent value="live" className="mt-6">
                     <div className="space-y-4">
-                      {[
-                        {
-                          name: "River Cleanup Campaign - Yamuna",
-                          volunteers: ["Anita Joshi", "Ravi Mehta", "Kavya Reddy", "+18 more"],
-                          status: "In Progress",
-                          progress: 65,
-                          deadline: "Dec 15, 2024",
-                          funding: "₹2.8Cr",
-                          location: "Delhi-Agra stretch",
-                          impactMetrics: {
-                            wasteRemoved: "450 tons",
-                            waterQualityImprovement: "35%",
-                            volunteersEngaged: "420",
-                            communitiesReached: "12"
-                          },
-                          category: "Water Conservation",
-                          priorityLevel: "High"
-                        },
-                        {
-                          name: "Urban Tree Planting Initiative",
-                          volunteers: ["Deepak Agarwal", "Meera Nair", "Suresh Iyer", "+15 more"],
-                          status: "Active",
-                          progress: 40,
-                          deadline: "Jan 30, 2025",
-                          funding: "₹1.5Cr",
-                          location: "Mumbai Metropolitan Region",
-                          impactMetrics: {
-                            treesPlanted: "12,500",
-                            co2Offset: "180 tons/year",
-                            areasCovered: "8 districts",
-                            schoolsInvolved: "45"
-                          },
-                          category: "Afforestation",
-                          priorityLevel: "Medium"
-                        },
-                        {
-                          name: "Plastic-Free Schools Campaign",
-                          volunteers: ["Pooja Verma", "Amit Jain", "Ritu Kapoor", "+22 more"],
-                          status: "Active",
-                          progress: 80,
-                          deadline: "Nov 20, 2024",
-                          funding: "₹85L",
-                          location: "Bangalore Urban",
-                          impactMetrics: {
-                            schoolsCertified: "185/200",
-                            plasticReduced: "2.5 tons/month",
-                            studentsEducated: "45,000",
-                            teachersTrained: "850"
-                          },
-                          category: "Waste Management",
-                          priorityLevel: "High"
-                        },
-                        {
-                          name: "Solar Energy Adoption - Rural Areas",
-                          volunteers: ["Sunita Rao", "Vikram Singh", "Priya Sharma", "+12 more"],
-                          status: "In Progress",
-                          progress: 55,
-                          deadline: "Feb 28, 2025",
-                          funding: "₹4.2Cr",
-                          location: "Rajasthan Rural Districts",
-                          impactMetrics: {
-                            homesElectrified: "1,200",
-                            energyGenerated: "480 kWh/day",
-                            co2Reduced: "350 tons/year",
-                            villagesConnected: "18"
-                          },
-                          category: "Renewable Energy",
-                          priorityLevel: "High"
-                        },
-                        {
-                          name: "Coastal Mangrove Restoration",
-                          volunteers: ["Arjun Menon", "Lakshmi Nair", "Rajesh Kumar", "+8 more"],
-                          status: "Active",
-                          progress: 30,
-                          deadline: "Jun 15, 2025",
-                          funding: "₹3.1Cr",
-                          location: "Kerala Coastal Belt",
-                          impactMetrics: {
-                            areaRestored: "150 hectares",
-                            saplingsPlanted: "75,000",
-                            fishermenBenefited: "320",
-                            biodiversitySpecies: "28 protected"
-                          },
-                          category: "Marine Conservation",
-                          priorityLevel: "Medium"
-                        }
-                      ].map((project, index) => (
-                        <div key={index} className="p-6 rounded-lg bg-muted/30 hover:bg-muted/40 transition-colors border border-border/20">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h4 className="font-medium text-foreground text-lg">{project.name}</h4>
-                                <Badge variant={
-                                  project.priorityLevel === "High" ? "destructive" :
-                                  project.priorityLevel === "Medium" ? "default" : "secondary"
-                                } className={
-                                  project.priorityLevel === "High" ? "bg-red-100 text-red-800 hover:bg-red-200" :
-                                  project.priorityLevel === "Medium" ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200" :
-                                  "bg-green-100 text-green-800 hover:bg-green-200"
-                                }>
-                                  {project.priorityLevel} Priority
-                                </Badge>
+                      {managedLoading ? (
+                        <p className="text-sm text-muted-foreground py-6">Loading your projects...</p>
+                      ) : managedLive.length === 0 ? (
+                        <div className="text-center py-10 text-muted-foreground">
+                          <FileText className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
+                          <p>No live projects yet</p>
+                          <p className="text-sm">
+                            Post a volunteer project or adopt a public issue, and it will show up here.
+                          </p>
+                        </div>
+                      ) : (
+                        managedLive.map((project) => (
+                          <div key={project.key} className="p-6 rounded-lg bg-muted/30 hover:bg-muted/40 transition-colors border border-border/20">
+                            <div className="flex items-start justify-between gap-3 mb-4">
+                              <div className="flex-1">
+                                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                                  <h4 className="font-medium text-foreground text-lg">{project.title}</h4>
+                                  <Badge variant="outline" className="bg-purple-50 border-purple-200 text-purple-700">
+                                    {project.kind === 'volunteer' ? 'Volunteer project' : 'Adopted public issue'}
+                                  </Badge>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-5 text-sm text-muted-foreground">
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="w-3.5 h-3.5" />
+                                    {project.location}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Users className="w-3.5 h-3.5" />
+                                    {project.memberCount} participant{project.memberCount === 1 ? "" : "s"}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Star className="w-3.5 h-3.5" />
+                                    {project.notices?.length || 0} notice{(project.notices?.length || 0) === 1 ? "" : "s"} · {project.media?.length || 0} media
+                                  </span>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-6 text-sm text-muted-foreground mb-3">
-                                <Badge variant="outline" className="bg-blue-50 border-blue-200 text-blue-700">
-                                  {project.category}
-                                </Badge>
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="w-3 h-3" />
-                                  {project.location}
-                                </span>
-                                <span className="font-medium text-green-600">
-                                  Funding: {project.funding}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Badge variant={project.status === "Active" ? "default" : "secondary"} className={
-                                project.status === "Active" ? "bg-green-500 hover:bg-green-600 text-white" : ""
-                              }>
-                                {project.status}
-                              </Badge>
-                              <span className="text-sm text-muted-foreground flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {project.deadline}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Progress Bar */}
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="flex-1 bg-muted rounded-full h-3">
-                              <div
-                                className="bg-gradient-to-r from-purple-500 to-pink-500 h-3 rounded-full transition-all"
-                                style={{ width: `${project.progress}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-sm font-medium text-purple-600 min-w-[3rem]">{project.progress}%</span>
-                          </div>
-
-                          {/* Impact Metrics */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                            {Object.entries(project.impactMetrics).map(([key, value], metricIndex) => (
-                              <div key={metricIndex} className="text-center p-3 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg">
-                                <p className="text-lg font-bold text-purple-600">{value}</p>
-                                <p className="text-xs text-muted-foreground capitalize">
-                                  {key.replace(/([A-Z])/g, ' $1').trim()}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Volunteers Section */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="flex -space-x-2">
-                                {project.volunteers.slice(0, 3).map((volunteer, vIndex) => (
-                                  <div
-                                    key={vIndex}
-                                    className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center border-2 border-background"
-                                  >
-                                    <span className="text-xs font-bold text-white">
-                                      {volunteer
-                                        .split(" ")
-                                        .map((n) => n[0])
-                                        .join("")}
-                                    </span>
-                                  </div>
-                                ))}
-                                {project.volunteers.length > 3 && (
-                                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center border-2 border-background">
-                                    <span className="text-xs text-muted-foreground">{project.volunteers[3]}</span>
-                                  </div>
-                                )}
-                              </div>
-                              <span className="text-sm text-muted-foreground">
-                                {project.volunteers.slice(0, 3).join(", ")}{" "}
-                                {project.volunteers.length > 3 && project.volunteers[3]}
-                              </span>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline" className="bg-transparent">
-                                <FileText className="w-4 h-4 mr-2" />
-                                View Details
-                              </Button>
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 className="bg-purple-500 hover:bg-purple-600 text-white"
-                                onClick={() => router.push(`/ngo/project-management/${project.name === "River Cleanup Campaign - Yamuna" ? "project123" : `project-${index}`}`)}
+                                onClick={() => router.push(`/ngo/project-management/${project.key}`)}
                               >
                                 <Settings className="w-4 h-4 mr-2" />
                                 Manage
                               </Button>
                             </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </TabsContent>
 
-                  <TabsContent value="planning" className="mt-6">
-                    <div className="space-y-4">
-                      {[
-                        {
-                          name: "Smart Waste Management System",
-                          category: "Waste Management",
-                          estimatedFunding: "₹3.5Cr",
-                          location: "Pune City",
-                          estimatedDuration: "18 months",
-                          plannedStartDate: "Mar 2025",
-                          expectedImpact: "500K residents benefited",
-                          planningStage: "Funding Approval",
-                          priority: "High",
-                          description: "IoT-based smart waste collection and recycling system for urban areas"
-                        },
-                        {
-                          name: "Himalayan Wildlife Corridor",
-                          category: "Wildlife Conservation",
-                          estimatedFunding: "₹6.8Cr",
-                          location: "Uttarakhand Himalayas",
-                          estimatedDuration: "42 months",
-                          plannedStartDate: "Jun 2025",
-                          expectedImpact: "12 endangered species protected",
-                          planningStage: "Environmental Clearance",
-                          priority: "Medium",
-                          description: "Creating wildlife corridors to connect fragmented habitats in the Himalayas"
-                        },
-                        {
-                          name: "Organic Farming Transition Program",
-                          category: "Sustainable Agriculture",
-                          estimatedFunding: "₹2.2Cr",
-                          location: "Punjab Agricultural Belt",
-                          estimatedDuration: "24 months",
-                          plannedStartDate: "Feb 2025",
-                          expectedImpact: "2,500 farmers transitioned",
-                          planningStage: "Community Consultation",
-                          priority: "Medium",
-                          description: "Supporting farmers to transition from chemical to organic farming practices"
-                        }
-                      ].map((project, index) => (
-                        <div key={index} className="p-6 rounded-lg bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h4 className="font-medium text-foreground text-lg">{project.name}</h4>
-                                <Badge variant={
-                                  project.priority === "High" ? "destructive" : "default"
-                                } className={
-                                  project.priority === "High" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"
-                                }>
-                                  {project.priority} Priority
-                                </Badge>
+                            {/* Progress bar */}
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1 bg-muted rounded-full h-3">
+                                <div
+                                  className="bg-gradient-to-r from-purple-500 to-pink-500 h-3 rounded-full transition-all"
+                                  style={{ width: `${project.progress}%` }}
+                                ></div>
                               </div>
-                              <p className="text-sm text-muted-foreground mb-3">{project.description}</p>
-                              <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                                <Badge variant="outline" className="bg-blue-50 border-blue-200 text-blue-700">
-                                  {project.category}
-                                </Badge>
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="w-3 h-3" />
-                                  {project.location}
-                                </span>
-                                <span className="font-medium text-green-600">
-                                  Budget: {project.estimatedFunding}
-                                </span>
-                              </div>
-                            </div>
-                            <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
-                              <Clock className="w-3 h-3 mr-1" />
-                              {project.planningStage}
-                            </Badge>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                            <div className="text-center p-3 bg-white rounded-lg">
-                              <p className="text-lg font-bold text-purple-600">{project.estimatedDuration}</p>
-                              <p className="text-xs text-muted-foreground">Estimated Duration</p>
-                            </div>
-                            <div className="text-center p-3 bg-white rounded-lg">
-                              <p className="text-lg font-bold text-blue-600">{project.plannedStartDate}</p>
-                              <p className="text-xs text-muted-foreground">Planned Start</p>
-                            </div>
-                            <div className="text-center p-3 bg-white rounded-lg">
-                              <p className="text-lg font-bold text-green-600">{project.expectedImpact}</p>
-                              <p className="text-xs text-muted-foreground">Expected Impact</p>
+                              <span className="text-sm font-medium text-purple-600 min-w-[3rem]">{project.progress}%</span>
                             </div>
                           </div>
-                          
-                          <div className="flex gap-2">
-                            <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600 text-white">
-                              <Plus className="w-4 h-4 mr-2" />
-                              Accelerate Planning
-                            </Button>
-                            <Button size="sm" variant="outline" className="bg-transparent">
-                              <FileText className="w-4 h-4 mr-2" />
-                              View Proposal
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </TabsContent>
 
                   <TabsContent value="completed" className="mt-6">
                     <div className="space-y-4">
-                      {[
-                        {
-                          name: "Mumbai Plastic Beach Cleanup",
-                          category: "Marine Conservation",
-                          actualFunding: "₹1.8Cr",
-                          location: "Versova Beach, Mumbai",
-                          duration: "8 months",
-                          completedDate: "Oct 2024",
-                          actualImpact: "15K tons plastic removed",
-                          successRating: 95,
-                          volunteersParticipated: 2500,
-                          achievements: [
-                            "Removed 15,000 tons of plastic waste",
-                            "Restored 2.5km of coastline",
-                            "Engaged 2,500 volunteers",
-                            "Created 45 permanent jobs"
-                          ],
-                          awards: ["UN Ocean Conservation Award", "Green India Excellence"]
-                        },
-                        {
-                          name: "Ganga Water Quality Improvement",
-                          category: "Water Conservation",
-                          actualFunding: "₹4.2Cr",
-                          location: "Haridwar to Rishikesh",
-                          duration: "18 months",
-                          completedDate: "Sep 2024",
-                          actualImpact: "Water quality improved by 40%",
-                          successRating: 88,
-                          volunteersParticipated: 850,
-                          achievements: [
-                            "Reduced pollution by 40%",
-                            "Installed 12 treatment units",
-                            "Trained 500 local operators",
-                            "Benefited 2M+ people"
-                          ],
-                          awards: ["National Water Conservation Award"]
-                        },
-                        {
-                          name: "Delhi Air Quality Monitoring",
-                          category: "Air Quality",
-                          actualFunding: "₹2.5Cr",
-                          location: "Delhi NCR",
-                          duration: "12 months",
-                          completedDate: "Aug 2024",
-                          actualImpact: "Real-time monitoring for 20M residents",
-                          successRating: 92,
-                          volunteersParticipated: 320,
-                          achievements: [
-                            "Deployed 50 monitoring stations",
-                            "Generated 2M+ data points",
-                            "Created public awareness app",
-                            "Informed policy decisions"
-                          ],
-                          awards: ["Smart Cities Innovation Award"]
-                        }
-                      ].map((project, index) => (
-                        <div key={index} className="p-6 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h4 className="font-medium text-foreground text-lg">{project.name}</h4>
-                                <Badge className="bg-green-100 text-green-800 border-green-300">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  Completed
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-6 text-sm text-muted-foreground mb-3">
-                                <Badge variant="outline" className="bg-blue-50 border-blue-200 text-blue-700">
-                                  {project.category}
-                                </Badge>
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="w-3 h-3" />
-                                  {project.location}
-                                </span>
-                                <span className="font-medium text-green-600">
-                                  Funding: {project.actualFunding}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Users className="w-3 h-3" />
-                                  {project.volunteersParticipated} volunteers
-                                </span>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="text-sm text-muted-foreground">Success Rate:</span>
-                                <span className="text-lg font-bold text-green-600">{project.successRating}%</span>
-                              </div>
-                              <span className="text-sm text-muted-foreground">Completed: {project.completedDate}</span>
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                            <div className="text-center p-3 bg-white rounded-lg">
-                              <p className="text-lg font-bold text-purple-600">{project.duration}</p>
-                              <p className="text-xs text-muted-foreground">Project Duration</p>
-                            </div>
-                            <div className="text-center p-3 bg-white rounded-lg">
-                              <p className="text-lg font-bold text-blue-600">{project.actualImpact}</p>
-                              <p className="text-xs text-muted-foreground">Key Impact</p>
-                            </div>
-                            <div className="text-center p-3 bg-white rounded-lg">
-                              <p className="text-lg font-bold text-green-600">{project.awards.length}</p>
-                              <p className="text-xs text-muted-foreground">Awards Received</p>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-3">
-                            <h5 className="font-medium text-foreground">Key Achievements</h5>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              {project.achievements.map((achievement, achIndex) => (
-                                <div key={achIndex} className="flex items-center gap-2 text-sm">
-                                  <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                                  <span className="text-muted-foreground">{achievement}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          
-                          <div className="mt-4 pt-4 border-t border-green-200">
-                            <div className="flex items-center justify-between">
-                              <div className="flex flex-wrap gap-2">
-                                {project.awards.map((award, awardIndex) => (
-                                  <Badge key={awardIndex} variant="outline" className="bg-yellow-50 border-yellow-300 text-yellow-800">
-                                    <Star className="w-3 h-3 mr-1" />
-                                    {award}
-                                  </Badge>
-                                ))}
-                              </div>
-                              <div className="flex gap-2">
-                                <Button size="sm" variant="outline" className="bg-transparent">
-                                  <FileText className="w-4 h-4 mr-2" />
-                                  Final Report
-                                </Button>
-                                <Button size="sm" variant="outline" className="bg-transparent">
-                                  <Share2 className="w-4 h-4 mr-2" />
-                                  Share Success
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
+                      {managedLoading ? (
+                        <p className="text-sm text-muted-foreground py-6">Loading completed projects...</p>
+                      ) : managedCompleted.length === 0 ? (
+                        <div className="text-center py-10 text-muted-foreground">
+                          <CheckCircle className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
+                          <p>Nothing completed yet</p>
+                          <p className="text-sm">Mark a live project completed from its manage page.</p>
                         </div>
-                      ))}
+                      ) : (
+                        managedCompleted.map((project) => {
+                          const cover = project.media?.find((m: any) => m.kind === 'image');
+                          return (
+                            <div key={project.key} className="p-6 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200">
+                              <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                                <div className="flex-1">
+                                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                                    <h4 className="font-medium text-foreground text-lg">{project.title}</h4>
+                                    <Badge className="bg-green-100 text-green-800 border-green-300">
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      Completed
+                                    </Badge>
+                                    <Badge variant="outline" className="bg-purple-50 border-purple-200 text-purple-700">
+                                      {project.kind === 'volunteer' ? 'Volunteer project' : 'Adopted public issue'}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-5 text-sm text-muted-foreground">
+                                    <span className="flex items-center gap-1">
+                                      <MapPin className="w-3.5 h-3.5" />
+                                      {project.location}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Users className="w-3.5 h-3.5" />
+                                      {project.memberCount} participants
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Calendar className="w-3.5 h-3.5" />
+                                      Completed {project.completedAt ? new Date(project.completedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : ""}
+                                    </span>
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="bg-transparent"
+                                  onClick={() => router.push(`/ngo/project-management/${project.key}`)}
+                                >
+                                  <FileText className="w-4 h-4 mr-2" />
+                                  View Photos, Videos & Participants
+                                </Button>
+                              </div>
+
+                              {cover ? (
+                                <div className="flex gap-3 overflow-x-auto">
+                                  {project.media.slice(0, 4).map((m: any, i: number) => (
+                                    <div key={i} className="w-40 h-28 rounded-lg overflow-hidden bg-white shrink-0">
+                                      {m.kind === 'image' ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={m.url} alt="" className="w-full h-full object-cover" />
+                                      ) : (
+                                        <video src={m.url} className="w-full h-full object-cover" muted />
+                                      )}
+                                    </div>
+                                  ))}
+                                  {(project.media?.length || 0) === 0 && (
+                                    <p className="text-sm text-muted-foreground">No media was added to this project.</p>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">
+                                  {project.completedSummary || "No media was added to this project."}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </TabsContent>
                 </Tabs>
               </CardContent>
             </Card>
-          )}
-        </main>
+          )}</main>
       </div>
     </div>
   )

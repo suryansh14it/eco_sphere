@@ -325,7 +325,7 @@ export function IssueFeed({ mode = "public" }: IssueFeedProps) {
                               {meta.label}
                             </span>
                             {mode === "ngo" &&
-                              (withGovt ? (
+                              (withGovt && meta.label !== "With Government" ? (
                                 <span
                                   className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700"
                                   title="Government has acknowledged/routed this issue"

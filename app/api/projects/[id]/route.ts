@@ -4,6 +4,7 @@ import connectDB from '@/lib/mongodb';
 import Project from '@/models/Project';
 import ProjectMember from '@/models/ProjectMember';
 import { requireUser, requireRole } from '@/lib/session';
+import ManagedProject from '@/models/ManagedProject';
 import {
   isValidCategory,
   membersForProjects,
@@ -73,11 +74,26 @@ export async function GET(
         )
       : serialized;
 
+    // Management highlights (progress, gallery, notices) are public so
+    // participants can follow the project's story.
+    const workspace = await ManagedProject.findOne({ key: `volunteer-${id}` })
+      .lean() as any;
+    const management = workspace
+      ? {
+          progress: workspace.progress || 0,
+          completedAt: workspace.completedAt || null,
+          media: workspace.media || [],
+          documents: workspace.documents || [],
+          notices: workspace.notices || [],
+        }
+      : null;
+
     return NextResponse.json({
       success: true,
       project: finalProject,
       isOwner,
       myMembership,
+      management,
     });
   } catch (error: any) {
     console.error('Error fetching project:', error);
