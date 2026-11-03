@@ -1,2285 +1,1571 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import ProtectedRoute from "@/components/protected-route"
-import { UserMenu } from "@/components/user-menu"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/components/auth-provider"
-import { AIAnalysisModal } from "@/components/ai-analysis-modal"
-import { GovRequestDetailsModal, type GovNewRequestDetail } from "@/components/government/request-details-modal"
-import { GovOngoingDetailsModal, type GovOngoingDetail } from "@/components/government/ongoing-details-modal"
-import { GovCompletedDetailsModal, type GovCompletedDetail } from "@/components/government/completed-details-modal"
-import DailyReportsOverview from "@/components/government/daily-reports-overview"
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
-  Search,
+  BadgeCheck,
   Bell,
-  User,
-  Users,
-  LayoutDashboard,
-  FileText,
+  Building2,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
   Clock,
-  CheckCircle,
-  BarChart3,
   DollarSign,
-  Leaf,
-  TrendingUp,
-  Filter,
-  MoreHorizontal,
-  MapPin,
-  Calendar,
-  Brain,
+  FileText,
   HandCoins,
-  BarChart2,
-  ArrowUp,
-  ArrowDown,
-  ArrowDownRight,
-  ArrowUpRight,
-} from "lucide-react"
-import { Line as ChartJSLine, Bar as ChartJSBar } from "react-chartjs-2"
+  Loader2,
+  MapPin,
+  Plus,
+  RefreshCw,
+  Trash2,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Tooltip as ChartJSTooltip,
-  Legend as ChartJSLegend,
-} from "chart.js"
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { UserMenu } from "@/components/user-menu";
+import { useAuth } from "@/components/auth-provider";
+import { PROJECT_CATEGORY_OPTIONS } from "@/components/projects/project-utils";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ChartJSTooltip, ChartJSLegend)
+type GovRequest = {
+  _id: string;
+  title: string;
+  description: string;
+  location: string;
+  department: string;
+  projectFunding: string;
+  timeline: string;
+  ngoName: string;
+  ngoEmail: string;
+  ngoCommission: string;
+  proposalSummary: string;
+  expectedImpact?: string;
+  implementationPlan?: string;
+  expectedStartDate?: string;
+  teamSize?: string;
+  experienceLevel?: string;
+  additionalNotes?: string;
+  additionalNotesText?: string;
+  submittedAt: string;
+  status: "submitted" | "approved" | "funded";
+  approvedFunding?: string;
+  approvedNote?: string;
+  approvedByGov?: { id: string; name: string };
+  approvedAt?: string | null;
+  paymentStatus: "pending" | "completed";
+  paymentRef?: string;
+  fundedAt?: string | null;
+  volunteerCount: number;
+  volunteers: { id: string; name: string; roleTitle: string; joinedAt: string }[];
+  project: { id: string; status: string; progress: number; completedAt?: string | null; completedSummary?: string } | null;
+  workEvidence: {
+    media: { kind: string; url: string }[];
+    documents: { title: string; url?: string }[];
+    mediaCount: number;
+    documentCount: number;
+  };
+};
 
-function CardSparkLine({ labels, data, color = "#16a34a" }: { labels: string[]; data: number[]; color?: string }) {
-  return (
-    <div className="h-16 -mb-2">
-      <ChartJSLine
-        data={{
-          labels,
-          datasets: [{ data, borderColor: color, backgroundColor: color, tension: 0.35, pointRadius: 0 }],
-        }}
-        options={{
-          responsive: true,
-          plugins: { legend: { display: false }, tooltip: { enabled: false } },
-          scales: { x: { display: false }, y: { display: false } },
-          elements: { line: { borderWidth: 2 } },
-        }}
-      />
-    </div>
-  )
-}
+type NgoDirectoryEntry = {
+  id: string;
+  name: string;
+  contactName: string;
+  email: string;
+  registrationNumber: string;
+  focusAreas: string[];
+  memberSince: string;
+  totals: { projects: number; open: number; completed: number; volunteers: number; fundingRequests: number; requestsPending: number };
+  projects: { id: string; title: string; status: string; volunteers: number }[];
+  fundingRequests: { id: string; title: string; status: string; funding: string; submittedAt: string }[];
+};
 
-function AreaMini({ labels, data, color }: { labels: string[]; data: number[]; color: string }) {
-  return (
-    <div className="h-48">
-      <ChartJSLine
-        data={{
-          labels,
-          datasets: [
-            {
-              label: "Value",
-              data,
-              borderColor: color,
-              pointRadius: 0,
-              tension: 0.35,
-              fill: true,
-              backgroundColor: (ctx) => {
-                const { ctx: c } = ctx.chart
-                const g = c.createLinearGradient(0, 0, 0, 180)
-                g.addColorStop(0, color + "55")
-                g.addColorStop(1, color + "00")
-                return g
-              },
-            },
-          ],
-        }}
-        options={{
-          responsive: true,
-          plugins: { legend: { display: false } },
-          scales: { x: { grid: { display: false } }, y: { grid: { color: '#eee' } } },
-        }}
-      />
-    </div>
-  )
-}
+type CompletedProject = {
+  id: string;
+  key: string;
+  title: string;
+  description: string;
+  category: string;
+  organisation: string;
+  location: string;
+  completedAt: string | null;
+  completedSummary: string;
+  progress: number;
+  media: { kind: string; url: string; name?: string }[];
+  documents: { title: string; url?: string }[];
+  participants: { id: string; name: string; email: string }[];
+  attendanceDates: string[];
+};
 
-function LineActualTarget({ labels, actual, target, color }: { labels: string[]; actual: number[]; target: number[]; color: string }) {
-  return (
-    <div className="h-48">
-      <ChartJSLine
-        data={{
-          labels,
-          datasets: [
-            { label: "Actual", data: actual, borderColor: color, backgroundColor: color, pointRadius: 0, tension: 0.35 },
-            { label: "Target", data: target, borderColor: "#94a3b8", borderDash: [6, 6], pointRadius: 0, tension: 0.35 },
-          ],
-        }}
-        options={{
-          responsive: true,
-          plugins: { legend: { position: 'top' } },
-          scales: { x: { grid: { display: false } }, y: { grid: { color: '#eee' } } },
-          elements: { line: { borderWidth: 2 } },
-        }}
-      />
-    </div>
-  )
-}
+type GovProject = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  location?: { address?: string; district?: string; state?: string } | null;
+  status: string;
+  roles: { id: string; title: string; slots: number; filled: number }[];
+  totalSlots: number;
+  totalFilled: number;
+  createdAt?: string;
+};
 
-const useCountUp = (end: number, duration = 1000, delay = 0) => {
-  const [count, setCount] = useState(0)
+const dateLabel = (d?: string | Date | null) =>
+  d
+    ? new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+    : "";
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      let startTime: number
-      const animate = (currentTime: number) => {
-        if (!startTime) startTime = currentTime
-        const progress = Math.min((currentTime - startTime) / duration, 1)
-
-        setCount(Math.floor(progress * end))
-
-        if (progress < 1) {
-          requestAnimationFrame(animate)
-        }
-      }
-      requestAnimationFrame(animate)
-    }, delay)
-
-    return () => clearTimeout(timer)
-  }, [end, duration, delay])
-
-  return count
-}
+const STATUS_META: Record<string, { label: string; badge: string }> = {
+  open: { label: "Open for volunteers", badge: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  completed: { label: "Completed", badge: "bg-green-100 text-green-800 border-green-300" },
+  closed: { label: "Completed", badge: "bg-green-100 text-green-800 border-green-300" },
+};
 
 export default function GovernmentDashboard() {
-  const [activeTab, setActiveTab] = useState("co2")
-  const [needForFundingFilter, setNeedForFundingFilter] = useState<"all"|"high"|"medium"|"low">("all")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [activeSection, setActiveSection] = useState("accepted-proposals")
-  const [requestModalOpen, setRequestModalOpen] = useState(false)
-  const [selectedRequest, setSelectedRequest] = useState<GovNewRequestDetail | null>(null)
-  const [ongoingModalOpen, setOngoingModalOpen] = useState(false)
-  const [selectedOngoing, setSelectedOngoing] = useState<GovOngoingDetail | null>(null)
-  const [completedModalOpen, setCompletedModalOpen] = useState(false)
-  const [selectedCompleted, setSelectedCompleted] = useState<GovCompletedDetail | null>(null)
-  // New states for negotiation
-  const [acceptedProposals, setAcceptedProposals] = useState<GovNewRequestDetail[]>([])
-  const [negotiatingProposals, setNegotiatingProposals] = useState<GovNewRequestDetail[]>([])
-  // State for dynamic project requests
-  const [projectRequests, setProjectRequests] = useState<GovNewRequestDetail[]>([])
-  const [isLoadingRequests, setIsLoadingRequests] = useState(true)
-
-  // Fetch project requests from database
-  const fetchProjectRequests = async () => {
-    try {
-      setIsLoadingRequests(true)
-
-      // Fetch ALL projects from database - no filtering, no auth required
-      const localInitiativesRes = await fetch('/api/ngo/local-initiative')
-
-      const localInitiativesData = await localInitiativesRes.json()
-
-      console.log('🔍 Local initiatives response:', localInitiativesData)
-
-      const dbRequests: GovNewRequestDetail[] = []
-
-      // Log the actual data structure for debugging
-      if (localInitiativesData.success) {
-        console.log('📊 Local initiatives count:', localInitiativesData.initiatives?.length || 0)
-        if (localInitiativesData.initiatives?.length > 0) {
-          console.log('📋 Sample local initiative:', localInitiativesData.initiatives[0])
-        }
-      }
-
-      // Map NGO Local Initiatives to GovNewRequestDetail format
-      if (localInitiativesData.success && localInitiativesData.initiatives) {
-        localInitiativesData.initiatives.forEach((initiative: any) => {
-          // Calculate commission percentages if funding is available
-          const totalFunding = parseFloat(initiative.projectFunding?.replace(/[₹,Cr]/g, '') || '0')
-          const ngoCommissionAmount = parseFloat(initiative.ngoCommission?.replace(/[₹,L]/g, '') || '0')
-
-          const ngoCommissionPercent = totalFunding > 0 ? (ngoCommissionAmount / totalFunding) * 100 : 0
-
-          dbRequests.push({
-            id: `local-${initiative._id}`,
-            title: initiative.title,
-            organization: initiative.ngoName,
-            location: initiative.location,
-            priority: "Medium" as const, // Default priority for local initiatives
-            description: initiative.description,
-            requestedFunding: initiative.projectFunding,
-            fundingBreakdown: {
-              total: initiative.projectFunding,
-              projectAmount: initiative.projectFunding,
-              ngoCommission: initiative.ngoCommission || "₹0",
-              researcherCommission: "₹0", // No researcher in local initiatives
-              ngoCommissionPercent: Math.round(ngoCommissionPercent * 10) / 10,
-              researcherCommissionPercent: 0,
-            },
-            objectives: initiative.categories?.length > 0 ? initiative.categories : [initiative.expectedImpact || "Local community initiative"],
-            proposedTimeline: {
-              start: initiative.expectedStartDate || "TBD",
-              end: "TBD" // Calculate from timeline if needed
-            },
-            proposedImpact: {
-              summary: initiative.expectedImpact || "Community-driven environmental impact",
-              // Map key metrics if available
-              ...(initiative.keyMetrics?.carbonReduction && {
-                co2ReductionTons: parseFloat(initiative.keyMetrics.carbonReduction) || 0
-              }),
-              ...(initiative.keyMetrics?.areaImpact && {
-                areaRestoredHa: parseFloat(initiative.keyMetrics.areaImpact) || 0
-              })
-            },
-            requirements: [initiative.implementationPlan || "Local initiative implementation requirements"],
-            coordinator: {
-              name: "NGO Coordinator",
-              contact: "Contact via platform"
-            },
-            // Proof of community backing requested with the funds: joined volunteers
-            volunteerEvidence: {
-              projectId: initiative.projectId || "",
-              volunteerCount: Number(initiative.volunteerCount) || (initiative.volunteers?.length || 0),
-              volunteerNames: (initiative.volunteers || []).map((v: any) => `${v.name}${v.roleTitle ? ` (${v.roleTitle})` : ""}`),
-            },
-          })
-        })
-      }
-
-      // Only real funding requests submitted through the platform
-      setProjectRequests([...dbRequests])
-
-    } catch (error) {
-      console.error('Error fetching project requests:', error)
-      // Fallback to whatever we already have
-      setProjectRequests([])
-    } finally {
-      setIsLoadingRequests(false)
-    }
-  }
-
-  // Initialize with dummy data for demonstration
-  useEffect(() => {
-    // Sample proposals in negotiation
-    const sampleNegotiating: GovNewRequestDetail[] = [
-      {
-        id: "negotiating-wetland",
-        title: "Wetland Restoration Initiative",
-        organization: "Blue Planet Foundation",
-        location: "Kolkata, WB",
-        priority: "Medium",
-        description: "Comprehensive wetland restoration project aiming to revitalize 200 hectares of degraded wetlands in the East Kolkata region. The project includes hydrological restoration, native plant species reintroduction, and community-based monitoring initiatives to ensure long-term sustainability.",
-        requestedFunding: "₹2.8Cr",
-        fundingBreakdown: {
-          total: "₹2.8Cr",
-          projectAmount: "₹2.5Cr",
-          ngoCommission: "₹20L",
-          researcherCommission: "₹10L",
-          ngoCommissionPercent: 7.1,
-          researcherCommissionPercent: 3.6,
-        },
-        objectives: ["Restore 200 hectares of degraded wetlands", "Reintroduce native aquatic plant species", "Establish community monitoring program"],
-        proposedTimeline: { start: "Nov 2025", end: "Oct 2027" },
-        proposedImpact: { 
-          summary: "Flood mitigation, water quality improvement, and biodiversity enhancement.", 
-          areaRestoredHa: 200,
-        },
-        requirements: ["Environmental clearances", "Local community participation"],
-        coordinator: { name: "Dr. Priya Banerjee", contact: "+91-94XXXXXX78" },
-        negotiation: {
-          status: "govt_offered",
-          govtOffer: {
-            total: "₹2.4Cr",
-            projectAmount: "₹2.2Cr",
-            ngoCommission: "₹14L",
-            researcherCommission: "₹6L",
-            ngoCommissionPercent: 5.8,
-            researcherCommissionPercent: 2.5,
-            notes: "We propose optimizing the budget by focusing on core restoration activities and reducing administrative overhead."
-          }
-        }
-      },
-      {
-        id: "negotiating-tribal",
-        title: "Tribal Forest Management Program",
-        organization: "Indigenous Rights Coalition",
-        location: "Ranchi, JH",
-        priority: "High",
-        description: "An initiative to empower tribal communities to manage forest resources sustainably through traditional knowledge integration, modern conservation techniques, and fair benefit-sharing mechanisms.",
-        requestedFunding: "₹1.8Cr",
-        fundingBreakdown: {
-          total: "₹1.8Cr",
-          projectAmount: "₹1.55Cr",
-          ngoCommission: "₹15L",
-          researcherCommission: "₹10L",
-          ngoCommissionPercent: 8.3,
-          researcherCommissionPercent: 5.6,
-        },
-        objectives: ["Train 20 tribal villages in sustainable forestry", "Establish 15 community seed banks", "Create market linkages for forest products"],
-        proposedTimeline: { start: "Dec 2025", end: "Nov 2027" },
-        proposedImpact: { 
-          summary: "Forest conservation, livelihood enhancement, and cultural preservation.", 
-          areaRestoredHa: 1200,
-        },
-        requirements: ["Tribal affairs ministry coordination", "Forest department permissions"],
-        coordinator: { name: "Sanjay Munda", contact: "+91-85XXXXXX34" },
-        negotiation: {
-          status: "ngo_countered",
-          govtOffer: {
-            total: "₹1.5Cr",
-            projectAmount: "₹1.3Cr",
-            ngoCommission: "₹12L",
-            researcherCommission: "₹8L",
-            ngoCommissionPercent: 8.0,
-            researcherCommissionPercent: 5.3,
-            notes: "We propose a more focused approach with reduced operational costs."
-          },
-          ngoCounterOffer: {
-            total: "₹1.65Cr",
-            projectAmount: "₹1.42Cr",
-            ngoCommission: "₹14L",
-            researcherCommission: "₹9L",
-            ngoCommissionPercent: 8.5,
-            researcherCommissionPercent: 5.5,
-            notes: "We've reduced the overall budget but need to maintain essential community engagement components that are critical for project success."
-          }
-        }
-      },
-      {
-        id: "negotiating-river",
-        title: "River Health Monitoring Network",
-        organization: "Aquatic Conservation Society",
-        location: "Varanasi, UP",
-        priority: "Medium",
-        description: "Establishment of a comprehensive river health monitoring network along a 120km stretch of the Ganga river, involving citizen scientists, modern sensors, and traditional knowledge systems for data collection and analysis.",
-        requestedFunding: "₹3.2Cr",
-        fundingBreakdown: {
-          total: "₹3.2Cr",
-          projectAmount: "₹2.9Cr",
-          ngoCommission: "₹20L",
-          researcherCommission: "₹10L",
-          ngoCommissionPercent: 6.3,
-          researcherCommissionPercent: 3.1,
-        },
-        objectives: ["Install 40 monitoring stations", "Train 200 citizen scientists", "Develop public dashboard for water quality data"],
-        proposedTimeline: { start: "Oct 2025", end: "Sep 2027" },
-        proposedImpact: { 
-          summary: "Improved water governance, pollution reduction, and ecosystem restoration.", 
-        },
-        requirements: ["National Mission for Clean Ganga coordination", "University research partnerships"],
-        coordinator: { name: "Dr. Abhishek Singh", contact: "+91-79XXXXXX12" },
-        negotiation: {
-          status: "ngo_countered",
-          govtOffer: {
-            total: "₹2.5Cr",
-            projectAmount: "₹2.3Cr",
-            ngoCommission: "₹12L",
-            researcherCommission: "₹8L",
-            ngoCommissionPercent: 4.8,
-            researcherCommissionPercent: 3.2,
-            notes: "We recommend focusing on core monitoring infrastructure and reducing the number of monitoring stations to 30."
-          },
-          ngoCounterOffer: {
-            total: "₹2.8Cr",
-            projectAmount: "₹2.6Cr",
-            ngoCommission: "₹12L",
-            researcherCommission: "₹8L",
-            ngoCommissionPercent: 4.3,
-            researcherCommissionPercent: 2.9,
-            notes: "We've revised the overall scope while maintaining 35 monitoring stations which is the minimum needed for scientific validity. We've reduced our commission rates to accommodate."
-          }
-        }
-      },
-      {
-        id: "negotiating-coral",
-        title: "Coral Reef Restoration Project",
-        organization: "Ocean Defenders Alliance",
-        location: "Lakshadweep",
-        priority: "High",
-        description: "Large-scale coral reef restoration project using advanced propagation techniques and local community involvement to restore 5 hectares of degraded coral reefs in the Lakshadweep archipelago.",
-        requestedFunding: "₹3.8Cr",
-        fundingBreakdown: {
-          total: "₹3.8Cr",
-          projectAmount: "₹3.4Cr",
-          ngoCommission: "₹25L",
-          researcherCommission: "₹15L",
-          ngoCommissionPercent: 6.6,
-          researcherCommissionPercent: 3.9,
-        },
-        objectives: ["Restore 5 hectares of coral reef", "Train 50 local dive instructors in restoration techniques", "Establish 3 coral nurseries"],
-        proposedTimeline: { start: "Jan 2026", end: "Dec 2028" },
-        proposedImpact: { 
-          summary: "Marine biodiversity enhancement, coastal protection, and ecotourism development.", 
-          speciesProtected: 120,
-        },
-        requirements: ["Ministry of Environment clearances", "Local community agreements"],
-        coordinator: { name: "Dr. Marina Shah", contact: "+91-99XXXXXX76" },
-        negotiation: {
-          status: "accepted",
-          govtOffer: {
-            total: "₹3.2Cr",
-            projectAmount: "₹2.9Cr",
-            ngoCommission: "₹20L",
-            researcherCommission: "₹10L",
-            ngoCommissionPercent: 6.3,
-            researcherCommissionPercent: 3.1,
-            notes: "We propose a more focused approach with emphasis on technology-assisted propagation to reduce costs."
-          }
-        }
-      }
-    ];
-    
-    // Sample accepted proposals with different negotiation statuses
-    const sampleAccepted: GovNewRequestDetail[] = [
-      {
-        id: "accepted-urban-forest",
-        title: "Urban Forest Restoration",
-        organization: "Green Cities NGO",
-        location: "Mumbai, MH",
-        priority: "High",
-        description: "Comprehensive urban forest restoration project aimed at planting 10,000 native trees across Mumbai's residential and commercial areas. The project focuses on improving air quality, reducing urban heat island effect, and creating green corridors for wildlife. Includes community engagement programs and long-term maintenance plans.",
-        requestedFunding: "₹1.5Cr",
-        fundingBreakdown: {
-          total: "₹1.5Cr",
-          projectAmount: "₹1.35Cr",
-          ngoCommission: "₹10L",
-          researcherCommission: "₹5L",
-          ngoCommissionPercent: 6.7,
-          researcherCommissionPercent: 3.3,
-        },
-        objectives: ["Plant 10,000 native trees in 12 wards", "Establish 5 community nurseries", "Develop maintenance MoUs with RWAs"],
-        proposedTimeline: { start: "Oct 2025", end: "Sep 2026" },
-        proposedImpact: { 
-          summary: "Air quality improvement and urban biodiversity enhancement.", 
-          treesPlanted: 10000, 
-          co2ReductionTons: 150 
-        },
-        requirements: ["Local community support", "Municipal permissions"],
-        coordinator: { name: "Anita Sharma", contact: "+91-98XXXXXX12" },
-        negotiation: {
-          status: "accepted",
-          govtOffer: {
-            total: "₹1.4Cr",
-            projectAmount: "₹1.27Cr",
-            ngoCommission: "₹8L",
-            researcherCommission: "₹5L",
-            ngoCommissionPercent: 5.7,
-            researcherCommissionPercent: 3.6,
-            notes: "We propose a slightly reduced budget with efficiency improvements in implementation."
-          }
-        },
-        payment: {
-          upiId: "greencities@upi",
-          qrCode: "/placeholder-qr.png",
-          status: "pending"
-        }
-      },
-      {
-        id: "accepted-mangrove",
-        title: "Mangrove Conservation Project",
-        organization: "Coastal Ecosystem Foundation",
-        location: "Raigad, MH",
-        priority: "Medium",
-        description: "Project aimed at conserving and restoring 500 hectares of mangrove ecosystems along Maharashtra's coastline. Includes community-based monitoring systems, livelihood alternatives for local fishing communities, and educational programs on mangrove importance.",
-        requestedFunding: "₹2.2Cr",
-        fundingBreakdown: {
-          total: "₹2.2Cr",
-          projectAmount: "₹1.95Cr",
-          ngoCommission: "₹15L",
-          researcherCommission: "₹10L",
-          ngoCommissionPercent: 6.8,
-          researcherCommissionPercent: 4.5,
-        },
-        objectives: ["Restore 500 hectares of degraded mangroves", "Establish community monitoring system", "Create alternative livelihood programs"],
-        proposedTimeline: { start: "Nov 2025", end: "Dec 2027" },
-        proposedImpact: { 
-          summary: "Coastal protection and marine biodiversity enhancement.", 
-          areaRestoredHa: 500,
-          speciesProtected: 35
-        },
-        requirements: ["Local fishing community engagement", "Coastal regulation zone permissions"],
-        coordinator: { name: "Dr. Rajesh Menon", contact: "+91-87XXXXXX45" },
-        negotiation: {
-          status: "approved",
-          govtOffer: {
-            total: "₹2.0Cr",
-            projectAmount: "₹1.8Cr",
-            ngoCommission: "₹12L",
-            researcherCommission: "₹8L",
-            ngoCommissionPercent: 6.0,
-            researcherCommissionPercent: 4.0,
-            notes: "Approved with optimized budget allocation and stronger emphasis on community participation."
-          }
-        },
-        payment: {
-          upiId: "coastaleco@upi",
-          status: "completed",
-          receipt: "receipt-mangrove-123456.jpg"
-        }
-      }
-    ];
-    
-    // Filter accepted proposals to only include those that need payment (remove approved ones)
-    const filteredAccepted = sampleAccepted.filter(p => p.negotiation?.status === 'accepted');
-    
-    setAcceptedProposals(filteredAccepted);
-    setNegotiatingProposals(sampleNegotiating);
-
-    // Fetch project requests from database immediately (no auth required)
-    fetchProjectRequests();
-  }, []); // Removed user dependency
-
-  const activeProjectsCount = useCountUp(142, 800, 100)
-  const pendingRequestsCount = useCountUp(37, 600, 200)
-  const fundingCount = useCountUp(5.7, 1000, 300)
-  const co2Count = useCountUp(2850, 1200, 400)
-
-  const carbonReductionCount = useCountUp(2850, 1000, 0)
-  const speciesCount = useCountUp(47, 800, 0)
-  const oceanAreaCount = useCountUp(780, 1000, 0)
-
-  const handleSearch = (query: string) => {
-    setSearchQuery(query)
-    console.log("[v0] Searching for:", query)
-  }
-
-  // removed old funding filter controls; using needForFundingFilter
-
-  const handleProjectAction = (projectId: string, action: string) => {
-    console.log("[v0] Project action:", action, "for project:", projectId)
-  }
-  
-  const handleAcceptProposal = (requestId: string) => {
-    // Find the request in the list - either from projectRequests or from proposals with counter offers
-    const request = projectRequests.find(r => r.id === requestId) || 
-                    negotiatingProposals.find(r => r.id === requestId) ||
-                    acceptedProposals.find(r => r.id === requestId);
-    
-    if (request) {
-      // Create a copy with the updated negotiation status
-      const updatedRequest = {
-        ...request,
-        negotiation: {
-          ...request.negotiation,
-          status: "accepted" as const
-        }
-      };
-      
-      // In a real app, you'd make an API call here
-      console.log("[v0] Accepting proposal for project:", requestId);
-      
-      // Update accepted proposals list
-      setAcceptedProposals(prev => {
-        // Remove existing entry if it exists
-        const filtered = prev.filter(p => p.id !== requestId);
-        return [...filtered, updatedRequest];
-      });
-      
-      // Set active section to accepted-proposals to see the results
-      setActiveSection("accepted-proposals");
-      
-      // Close modal
-      setRequestModalOpen(false);
-      setSelectedRequest(null);
-    }
-  }
-  
-  const handleSendOffer = (requestId: string, offerDetails: any) => {
-    // Find the request in the list from any possible source
-    const request = projectRequests.find(r => r.id === requestId) || 
-                    negotiatingProposals.find(r => r.id === requestId) ||
-                    acceptedProposals.find(r => r.id === requestId);
-                    
-    if (request) {
-      // Create a copy with the updated negotiation info
-      const updatedRequest = {
-        ...request,
-        negotiation: {
-          status: "govt_offered" as const,
-          govtOffer: offerDetails
-        }
-      };
-      
-      // In a real app, you'd make an API call here
-      console.log("[v0] Sending counter offer for project:", requestId, offerDetails);
-      
-      // Update negotiating proposals list
-      setNegotiatingProposals(prev => {
-        // Remove existing entry if it exists
-        const filtered = prev.filter(p => p.id !== requestId);
-        return [...filtered, updatedRequest];
-      });
-      
-      // For demonstration purposes, let's also add to accepted proposals after a slight delay
-      setTimeout(() => {
-        const acceptedRequest = {
-          ...updatedRequest,
-          negotiation: {
-            ...updatedRequest.negotiation,
-            status: "accepted" as const
-          }
-        };
-        
-        setAcceptedProposals(prev => {
-          // Remove existing entry if it exists
-          const filtered = prev.filter(p => p.id !== requestId);
-          return [...filtered, acceptedRequest];
-        });
-        
-        // Change to accepted-proposals tab to show the result
-        setActiveSection("accepted-proposals");
-      }, 500);
-      
-      // Close modal
-      setRequestModalOpen(false);
-      setSelectedRequest(null);
-    }
-  }
-  
-  const handleApproveProject = (requestId: string) => {
-    // Find the request in the list
-    const request = acceptedProposals.find(r => r.id === requestId);
-    if (request) {
-      // Create a copy with the updated negotiation status
-      const updatedRequest = {
-        ...request,
-        negotiation: {
-          ...request.negotiation,
-          status: "approved" as const
-        }
-      };
-      
-      // In a real app, you'd make an API call here
-      console.log("[v0] Approving project:", requestId);
-      
-      // Update the accepted proposals list
-      setAcceptedProposals(prev => {
-        const filtered = prev.filter(p => p.id !== requestId);
-        return [...filtered, updatedRequest];
-      });
-      
-      // Close modal
-      setRequestModalOpen(false);
-      setSelectedRequest(null);
-    }
-  }
-  
-  const handleUploadPaymentReceipt = async (requestId: string, receipt: string) => {
-    // Find the request in the list
-    const request = acceptedProposals.find(r => r.id === requestId);
-    if (request) {
-      try {
-        // Update the local state immediately for better UX
-        const updatedRequest = {
-          ...request,
-          payment: {
-            ...request.payment,
-            receipt: receipt,
-            status: "completed" as const
-          },
-          negotiation: {
-            ...request.negotiation,
-            status: "approved" as const
-          }
-        };
-
-        // Update accepted proposals list with the payment receipt
-        setAcceptedProposals(prev => {
-          const filtered = prev.filter(p => p.id !== requestId);
-          return [...filtered, updatedRequest];
-        });
-
-        console.log("Payment receipt uploaded successfully for project:", requestId);
-
-        // Close modal
-        setRequestModalOpen(false);
-        setSelectedRequest(null);
-
-      } catch (error) {
-        console.error('Error updating payment receipt:', error);
-        // You could add error handling here, like showing a toast notification
-      }
-    }
-  }
-
-  const handleSidebarClick = (section: string) => {
-    setActiveSection(section)
-    console.log("[v0] Sidebar section changed to:", section)
-  }
-
-  const renderActiveSection = () => {
-    switch (activeSection) {
-      case "dashboard":
-        return (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="glass hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Active Projects</p>
-                      <p className="text-2xl font-bold text-primary">{activeProjectsCount}</p>
-                      <p className="text-xs text-emerald-600 flex items-center mt-1">
-                        <TrendingUp className="w-3 h-3 mr-1" />
-                        +12% from last month
-                      </p>
-                    </div>
-                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                      <LayoutDashboard className="w-6 h-6 text-blue-600" />
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <CardSparkLine labels={["Apr","May","Jun","Jul","Aug"]} data={[120,130,128,138,142]} color="#2563eb" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="glass hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Pending Requests</p>
-                      <p className="text-2xl font-bold text-orange-600">{pendingRequestsCount}</p>
-                      <p className="text-xs text-orange-600 flex items-center mt-1">
-                        <Clock className="w-3 h-3 mr-1" />
-                        Requires attention
-                      </p>
-                    </div>
-                    <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
-                      <FileText className="w-6 h-6 text-orange-600" />
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <CardSparkLine labels={["Apr","May","Jun","Jul","Aug"]} data={[22,28,25,31,37]} color="#f59e0b" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="glass hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Funding</p>
-                      <p className="text-2xl font-bold text-emerald-600">₹{(fundingCount * 83).toFixed(1)}Cr</p>
-                      <p className="text-xs text-emerald-600 flex items-center mt-1">
-                        <TrendingUp className="w-3 h-3 mr-1" />
-                        +8% allocated
-                      </p>
-                    </div>
-                    <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
-                      <DollarSign className="w-6 h-6 text-emerald-600" />
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <CardSparkLine labels={["Apr","May","Jun","Jul","Aug"]} data={[4.1,4.5,4.9,5.3,5.7].map(n=>n*83)} color="#10b981" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="glass hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">CO₂ Reduction</p>
-                      <p className="text-2xl font-bold text-green-600">{co2Count.toLocaleString()}t</p>
-                      <p className="text-xs text-green-600 flex items-center mt-1">
-                        <Leaf className="w-3 h-3 mr-1" />
-                        This quarter
-                      </p>
-                    </div>
-                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                      <Leaf className="w-6 h-6 text-green-600" />
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <CardSparkLine labels={["Apr","May","Jun","Jul","Aug"]} data={[1800,2100,2400,2650,2850]} color="#22c55e" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="glass">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-lg font-serif">New Project Requests</CardTitle>
-                    <Badge variant="secondary">{projectRequests.length} total</Badge>
-                    {isLoadingRequests && (
-                      <Badge variant="outline" className="gap-1">
-                        <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        Loading...
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-transparent gap-1"
-                      onClick={fetchProjectRequests}
-                      disabled={isLoadingRequests}
-                    >
-                      <ArrowUpRight className="w-4 h-4" />
-                      Refresh
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-transparent"
-                      onClick={() => console.log("[v0] Filter clicked")}
-                    >
-                      <Filter className="w-4 h-4 mr-2" />
-                      Filter
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {isLoadingRequests ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        Loading project requests...
-                      </div>
-                    ) : projectRequests.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
-                        <p>No project requests found</p>
-                        <p className="text-sm">New requests will appear here when an NGO submits a funding request</p>
-                      </div>
-                    ) : projectRequests.map((request, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() => {
-                          setSelectedRequest(request)
-                          setRequestModalOpen(true)
-                        }}
-                      >
-                        <div className="flex-1">
-                          <h4 className="font-medium text-foreground">{request.title}</h4>
-                          <p className="text-sm text-muted-foreground">{request.organization}</p>
-                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                            <span className="flex items-center">
-                              <MapPin className="w-3 h-3 mr-1" />
-                              {request.location}
-                            </span>
-                            <span className="flex items-center">
-                              <DollarSign className="w-3 h-3 mr-1" />
-                              {request.requestedFunding}
-                            </span>
-                            {request.volunteerEvidence?.volunteerCount > 0 && (
-                              <span className="flex items-center font-medium text-emerald-700">
-                                <Users className="w-3 h-3 mr-1" />
-                                {request.volunteerEvidence.volunteerCount} volunteer
-                                {request.volunteerEvidence.volunteerCount === 1 ? "" : "s"} joined
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={request.priority === "High" ? "destructive" : "secondary"}>
-                            {request.priority}
-                          </Badge>
-                          <AIAnalysisModal projectData={{
-                            title: request.title,
-                            organization: request.organization,
-                            funding: request.requestedFunding,
-                            location: request.location,
-                            priority: request.priority,
-                            description: request.description,
-                          }}>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-2"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                              }}
-                            >
-                              <Brain className="w-4 h-4" />
-                              AI Analyse
-                            </Button>
-                          </AIAnalysisModal>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setSelectedRequest(request)
-                              setRequestModalOpen(true)
-                            }}
-                          >
-                            View Details
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleProjectAction(request.title, "more-options")
-                            }}
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="glass">
-                <CardHeader>
-                  <CardTitle className="text-lg font-serif">Impact Overview</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
-                      <TabsTrigger value="co2">CO₂</TabsTrigger>
-                      <TabsTrigger value="biodiversity">Biodiversity</TabsTrigger>
-                      <TabsTrigger value="marine">Marine</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="co2" className="mt-4">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Carbon Reduction</span>
-                          <span className="font-medium">{carbonReductionCount.toLocaleString()} tons</span>
-                        </div>
-                        <div className="w-full bg-muted rounded-full h-2">
-                          <div className="bg-green-500 h-2 rounded-full" style={{ width: "75%" }}></div>
-                        </div>
-                        <p className="text-xs text-muted-foreground">75% of quarterly target achieved</p>
-                      </div>
-                    </TabsContent>
-                    <TabsContent value="biodiversity" className="mt-4">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Species Protected</span>
-                          <span className="font-medium">{speciesCount} species</span>
-                        </div>
-                        <div className="w-full bg-muted rounded-full h-2">
-                          <div className="bg-emerald-500 h-2 rounded-full" style={{ width: "60%" }}></div>
-                        </div>
-                        <p className="text-xs text-muted-foreground">60% of annual target achieved</p>
-                      </div>
-                    </TabsContent>
-                    <TabsContent value="marine" className="mt-4">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Ocean Area Cleaned</span>
-                          <span className="font-medium">{oceanAreaCount} km²</span>
-                        </div>
-                        <div className="w-full bg-muted rounded-full h-2">
-                          <div className="bg-cyan-500 h-2 rounded-full" style={{ width: "85%" }}></div>
-                        </div>
-                        <p className="text-xs text-muted-foreground">85% of quarterly target achieved</p>
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
-            </div>
-          </>
-        )
-
-      case "negotiating-proposals":
-        return (
-          <Card className="glass h-[calc(100vh-120px)]">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg font-serif">Proposals in Negotiation</CardTitle>
-              <div className="flex gap-2">
-                <Badge variant="outline" className="bg-orange-100 text-orange-700">
-                  Government Offered: {negotiatingProposals.filter(p => p.negotiation?.status === 'govt_offered').length}
-                </Badge>
-                <Badge variant="outline" className="bg-purple-100 text-purple-700">
-                  NGO Countered: {negotiatingProposals.filter(p => p.negotiation?.status === 'ngo_countered').length}
-                </Badge>
-                <Badge variant="outline" className="bg-green-100 text-green-700">
-                  Ready for Payment: {negotiatingProposals.filter(p => p.negotiation?.status === 'accepted').length}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="h-[calc(100%-80px)] overflow-y-auto">
-              <div className="space-y-4">
-                {negotiatingProposals.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <BarChart3 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
-                    <p>No proposals in negotiation</p>
-                    <p className="text-sm">Project negotiations will appear here</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Government offered proposals */}
-                    {negotiatingProposals.filter(p => p.negotiation?.status === 'govt_offered').length > 0 && (
-                      <>
-                        <h3 className="text-md font-medium flex items-center gap-2 mt-2 mb-3">
-                          <ArrowDown className="w-4 h-4 text-orange-500" /> Awaiting NGO Response
-                        </h3>
-                        {negotiatingProposals
-                          .filter(p => p.negotiation?.status === 'govt_offered')
-                          .map((proposal) => (
-                            <div
-                              key={proposal.id}
-                              className="flex items-center justify-between p-4 rounded-lg bg-orange-50 hover:bg-orange-100 transition-colors cursor-pointer border border-orange-200"
-                              onClick={() => {
-                                setSelectedRequest(proposal)
-                                setRequestModalOpen(true)
-                              }}
-                            >
-                              <div className="flex-1">
-                                <h4 className="font-medium text-foreground flex items-center gap-2">
-                                  {proposal.title}
-                                  <Badge variant="outline" className="bg-orange-100 text-orange-700 ml-2">Awaiting Response</Badge>
-                                </h4>
-                                <p className="text-sm text-muted-foreground">{proposal.organization}</p>
-                                <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                                  <span className="flex items-center">
-                                    <MapPin className="w-3 h-3 mr-1" />
-                                    {proposal.location}
-                                  </span>
-                                  <span className="flex items-center">
-                                    <ArrowDownRight className="w-3 h-3 mr-1 text-green-600" />
-                                    Offered: {proposal.negotiation?.govtOffer?.total}
-                                  </span>
-                                  <span className="flex items-center">
-                                    <DollarSign className="w-3 h-3 mr-1" />
-                                    Requested: {proposal.requestedFunding}
-                                  </span>
-                                </div>
-                              </div>
-                              <Button
-                                variant="default"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedRequest(proposal);
-                                  setRequestModalOpen(true);
-                                }}
-                              >
-                                View Details
-                              </Button>
-                            </div>
-                          ))}
-                      </>
-                    )}
-                    
-                    {/* NGO countered proposals */}
-                    {negotiatingProposals.filter(p => p.negotiation?.status === 'ngo_countered').length > 0 && (
-                      <>
-                        <h3 className="text-md font-medium flex items-center gap-2 mt-6 mb-3">
-                          <ArrowUp className="w-4 h-4 text-purple-500" /> Counter Offers Received
-                        </h3>
-                        {negotiatingProposals
-                          .filter(p => p.negotiation?.status === 'ngo_countered')
-                          .map((proposal) => (
-                            <div
-                              key={proposal.id}
-                              className="flex items-center justify-between p-4 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors cursor-pointer border border-purple-200"
-                              onClick={() => {
-                                setSelectedRequest(proposal)
-                                setRequestModalOpen(true)
-                              }}
-                            >
-                              <div className="flex-1">
-                                <h4 className="font-medium text-foreground flex items-center gap-2">
-                                  {proposal.title}
-                                  <Badge variant="outline" className="bg-purple-100 text-purple-700 ml-2">Counter Offer</Badge>
-                                </h4>
-                                <p className="text-sm text-muted-foreground">{proposal.organization}</p>
-                                <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                                  <span className="flex items-center">
-                                    <MapPin className="w-3 h-3 mr-1" />
-                                    {proposal.location}
-                                  </span>
-                                  <span className="flex items-center">
-                                    <ArrowDownRight className="w-3 h-3 mr-1 text-green-600" />
-                                    Your offer: {proposal.negotiation?.govtOffer?.total}
-                                  </span>
-                                  <span className="flex items-center">
-                                    <ArrowUpRight className="w-3 h-3 mr-1 text-purple-600" />
-                                    Counter: {proposal.negotiation?.ngoCounterOffer?.total}
-                                  </span>
-                                </div>
-                              </div>
-                              <Button
-                                variant="default"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedRequest(proposal);
-                                  setRequestModalOpen(true);
-                                }}
-                              >
-                                Review Offer
-                              </Button>
-                            </div>
-                          ))}
-                      </>
-                    )}
-                    
-                    {/* Accepted proposals awaiting payment */}
-                    {negotiatingProposals.filter(p => p.negotiation?.status === 'accepted').length > 0 && (
-                      <>
-                        <h3 className="text-md font-medium flex items-center gap-2 mt-6 mb-3">
-                          <CheckCircle className="w-4 h-4 text-green-500" /> Ready for Payment
-                        </h3>
-                        {negotiatingProposals
-                          .filter(p => p.negotiation?.status === 'accepted')
-                          .map((proposal) => (
-                            <div
-                              key={proposal.id}
-                              className="flex items-center justify-between p-4 rounded-lg bg-green-50 hover:bg-green-100 transition-colors cursor-pointer border border-green-200"
-                              onClick={() => {
-                                setSelectedRequest(proposal)
-                                setRequestModalOpen(true)
-                              }}
-                            >
-                              <div className="flex-1">
-                                <h4 className="font-medium text-foreground flex items-center gap-2">
-                                  {proposal.title}
-                                  <Badge variant="outline" className="bg-green-100 text-green-700 ml-2">Ready for Payment</Badge>
-                                </h4>
-                                <p className="text-sm text-muted-foreground">{proposal.organization}</p>
-                                <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                                  <span className="flex items-center">
-                                    <MapPin className="w-3 h-3 mr-1" />
-                                    {proposal.location}
-                                  </span>
-                                  <span className="flex items-center">
-                                    <DollarSign className="w-3 h-3 mr-1 text-green-600" />
-                                    Final Amount: {proposal.negotiation?.govtOffer?.total}
-                                  </span>
-                                </div>
-                              </div>
-                              <Button
-                                variant="default"
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700 text-white"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedRequest(proposal);
-                                  setRequestModalOpen(true);
-                                }}
-                              >
-                                Process Payment
-                              </Button>
-                            </div>
-                          ))}
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        );
-        
-      case "accepted-proposals":
-        return (
-          <Card className="glass h-[calc(100vh-120px)]">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg font-serif">Approved Proposals</CardTitle>
-              <div className="flex gap-2">
-                <Badge variant="outline" className="bg-green-100 text-green-700">
-                  Ready for Payment: {acceptedProposals.filter(p => p.negotiation?.status === 'accepted').length}
-                </Badge>
-                <Badge variant="outline" className="bg-blue-100 text-blue-700">
-                  Approved: {acceptedProposals.filter(p => p.negotiation?.status === 'approved').length}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="h-[calc(100%-80px)] overflow-y-auto">
-              <div className="space-y-4">
-                {acceptedProposals.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <HandCoins className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
-                    <p>No accepted proposals yet</p>
-                    <p className="text-sm">Proposals that you accept will appear here</p>
-                  </div>
-                ) : (
-                  <>
-                    {acceptedProposals.filter(p => p.negotiation?.status === 'accepted').length > 0 && (
-                      <>
-                        <h3 className="text-md font-medium flex items-center gap-2 mt-2 mb-3">
-                          <DollarSign className="w-4 h-4" /> Ready for Payment
-                        </h3>
-                        {acceptedProposals
-                          .filter(p => p.negotiation?.status === 'accepted')
-                          .map((proposal) => (
-                            <div
-                              key={proposal.id}
-                              className="p-4 rounded-lg border border-green-100 bg-green-50/50 hover:bg-green-50 transition-colors cursor-pointer"
-                              onClick={() => {
-                                setSelectedRequest(proposal);
-                                setRequestModalOpen(true);
-                              }}
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <h3 className="font-medium">{proposal.title}</h3>
-                                  <Badge variant="outline" className="bg-green-100 text-green-700">
-                                    Payment Pending
-                                  </Badge>
-                                </div>
-                                <Button variant="outline" size="sm" className="bg-green-100 hover:bg-green-200 border-green-200">
-                                  Make Payment
-                                </Button>
-                              </div>
-                              
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                                <span className="font-medium text-green-700">{proposal.organization}</span>
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="w-3.5 h-3.5" />
-                                  {proposal.location}
-                                </span>
-                              </div>
-                              
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3 text-sm">
-                                <div className="p-2 bg-white/70 rounded border border-green-100">
-                                  <span className="text-muted-foreground">Original Request</span>
-                                  <div className="font-medium">{proposal.requestedFunding}</div>
-                                </div>
-                                <div className="p-2 bg-white/70 rounded border border-green-100">
-                                  <span className="text-muted-foreground">Your Offer</span>
-                                  <div className="font-medium">{proposal.negotiation?.govtOffer?.total}</div>
-                                </div>
-                                <div className="p-2 bg-white/70 rounded border border-green-100">
-                                  <span className="text-muted-foreground">Timeline</span>
-                                  <div className="font-medium">{proposal.proposedTimeline.start} - {proposal.proposedTimeline.end}</div>
-                                </div>
-                              </div>
-                              
-                              <div className="text-xs text-muted-foreground">
-                                {proposal.negotiation?.govtOffer?.notes && (
-                                  <p className="italic">Note: {proposal.negotiation.govtOffer.notes}</p>
-                                )}
-                                <p className="mt-1">Click to view complete details and process payment</p>
-                              </div>
-                            </div>
-                        ))}
-                      </>
-                    )}
-                    
-                    {acceptedProposals.filter(p => p.negotiation?.status === 'approved').length > 0 && (
-                      <>
-                        <h3 className="text-md font-medium flex items-center gap-2 mt-4 mb-3">
-                          <CheckCircle className="w-4 h-4" /> Approved Projects
-                        </h3>
-                        {acceptedProposals
-                          .filter(p => p.negotiation?.status === 'approved')
-                          .map((proposal) => (
-                            <div
-                              key={proposal.id}
-                              className="p-4 rounded-lg border border-blue-100 bg-blue-50/50 hover:bg-blue-50 transition-colors cursor-pointer"
-                              onClick={() => {
-                                setSelectedRequest(proposal);
-                                setRequestModalOpen(true);
-                              }}
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <h3 className="font-medium">{proposal.title}</h3>
-                                  <Badge variant="outline" className="bg-blue-100 text-blue-700">
-                                    Payment Verified
-                                  </Badge>
-                                </div>
-                                <Button variant="outline" size="sm" className="bg-blue-100 hover:bg-blue-200 border-blue-200">
-                                  Track Progress
-                                </Button>
-                              </div>
-                              
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                                <span className="font-medium text-blue-700">{proposal.organization}</span>
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="w-3.5 h-3.5" />
-                                  {proposal.location}
-                                </span>
-                              </div>
-                              
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3 text-sm">
-                                <div className="p-2 bg-white/70 rounded border border-blue-100">
-                                  <span className="text-muted-foreground">Final Amount</span>
-                                  <div className="font-medium">{proposal.negotiation?.govtOffer?.total}</div>
-                                </div>
-                                <div className="p-2 bg-white/70 rounded border border-blue-100">
-                                  <span className="text-muted-foreground">Payment Status</span>
-                                  <div className="flex items-center gap-1">
-                                    <span className="h-2 w-2 rounded-full bg-blue-500"></span>
-                                    <span className="font-medium">Verified</span>
-                                  </div>
-                                </div>
-                                <div className="p-2 bg-white/70 rounded border border-blue-100">
-                                  <span className="text-muted-foreground">Timeline</span>
-                                  <div className="font-medium">{proposal.proposedTimeline.start} - {proposal.proposedTimeline.end}</div>
-                                </div>
-                              </div>
-                              
-                              <div className="text-xs text-muted-foreground">
-                                <p>Click to view complete project details and monitor progress</p>
-                              </div>
-                            </div>
-                        ))}
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        );
-        
-      case "new-requests":
-        return (
-          <Card className="glass h-[calc(100vh-120px)]">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-lg font-serif">New Project Requests</CardTitle>
-                <Badge variant="secondary">{projectRequests.length} total</Badge>
-                {isLoadingRequests && (
-                  <Badge variant="outline" className="gap-1">
-                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    Loading...
-                  </Badge>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-transparent gap-1"
-                  onClick={fetchProjectRequests}
-                  disabled={isLoadingRequests}
-                >
-                  <ArrowUpRight className="w-4 h-4" />
-                  Refresh
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-transparent"
-                  onClick={() => console.log("[v0] Filter clicked")}
-                >
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filter
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="h-[calc(100%-80px)] overflow-y-auto">
-              <div className="space-y-4">
-                {isLoadingRequests ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Loading project requests...
-                  </div>
-                ) : projectRequests.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
-                    <p>No project requests found</p>
-                    <p className="text-sm">New requests will appear here when an NGO submits a funding request</p>
-                  </div>
-                ) : projectRequests.map((request, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => {
-                      setSelectedRequest(request)
-                      setRequestModalOpen(true)
-                    }}
-                  >
-                    <div className="flex-1">
-                      <h4 className="font-medium text-foreground">{request.title}</h4>
-                      <p className="text-sm text-muted-foreground">{request.organization}</p>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                        <span className="flex items-center">
-                          <MapPin className="w-3 h-3 mr-1" />
-                          {request.location}
-                        </span>
-                        <span className="flex items-center">
-                          <DollarSign className="w-3 h-3 mr-1" />
-                          {request.requestedFunding}
-                        </span>
-                        {request.volunteerEvidence?.volunteerCount > 0 && (
-                          <span className="flex items-center font-medium text-emerald-700">
-                            <Users className="w-3 h-3 mr-1" />
-                            {request.volunteerEvidence.volunteerCount} volunteer
-                            {request.volunteerEvidence.volunteerCount === 1 ? "" : "s"} joined
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={request.priority === "High" ? "destructive" : "secondary"}>
-                        {request.priority}
-                      </Badge>
-                      <AIAnalysisModal projectData={{
-                        title: request.title,
-                        organization: request.organization,
-                        funding: request.requestedFunding,
-                        location: request.location,
-                        priority: request.priority,
-                        description: request.description,
-                      }}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-2"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                          }}
-                        >
-                          <Brain className="w-4 h-4" />
-                          AI Analyse
-                        </Button>
-                      </AIAnalysisModal>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedRequest(request)
-                          setRequestModalOpen(true)
-                        }}
-                      >
-                        View Details
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleProjectAction(request.title, "more-options")
-                        }}
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )
-
-      case "ongoing-projects":
-        return (
-          <Card className="glass h-[calc(100vh-120px)]">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg font-serif">Ongoing Projects</CardTitle>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={needForFundingFilter === "all" ? "bg-primary text-primary-foreground" : "bg-transparent"}
-                  onClick={() => setNeedForFundingFilter("all")}
-                >
-                  All Needs
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={needForFundingFilter === "high" ? "bg-primary text-primary-foreground" : "bg-transparent"}
-                  onClick={() => setNeedForFundingFilter("high")}
-                >
-                  High Need
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={needForFundingFilter === "medium" ? "bg-primary text-primary-foreground" : "bg-transparent"}
-                  onClick={() => setNeedForFundingFilter("medium")}
-                >
-                  Medium Need
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={needForFundingFilter === "low" ? "bg-primary text-primary-foreground" : "bg-transparent"}
-                  onClick={() => setNeedForFundingFilter("low")}
-                >
-                  Low Need
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="h-[calc(100%-80px)] overflow-y-auto">
-              <div className="space-y-4">
-                {[ 
-                  {
-                    title: "National Solar Mission Phase III",
-                    progress: 72,
-                    funding: "₹24.5Cr",
-                    deadline: "Mar 2025",
-                    status: "On Track",
-                    needForFunding: "medium",
-                  },
-                  {
-                    title: "Yamuna Floodplain Restoration",
-                    progress: 45,
-                    funding: "₹12.8Cr",
-                    deadline: "Jul 2025",
-                    status: "Delayed",
-                    needForFunding: "high",
-                  },
-                  {
-                    title: "National Clean Air Programme - Delhi Phase",
-                    progress: 88,
-                    funding: "₹18.6Cr",
-                    deadline: "Dec 2024",
-                    status: "Ahead",
-                    needForFunding: "low",
-                  },
-                  {
-                    title: "Namami Gange - Varanasi Segment",
-                    progress: 65,
-                    funding: "₹32.7Cr",
-                    deadline: "Apr 2025",
-                    status: "On Track",
-                    needForFunding: "medium",
-                  },
-                  {
-                    title: "Sustainable Himalayan Ecosystem Initiative",
-                    progress: 51,
-                    funding: "₹27.5Cr",
-                    deadline: "Sep 2025",
-                    status: "On Track",
-                    needForFunding: "high",
-                  },
-                  {
-                    title: "Kutch Mangrove Restoration Project",
-                    progress: 92,
-                    funding: "₹8.4Cr",
-                    deadline: "Nov 2024",
-                    status: "Ahead",
-                    needForFunding: "low",
-                  },
-                  {
-                    title: "Tamil Nadu Coastal Zone Protection",
-                    progress: 37,
-                    funding: "₹16.2Cr",
-                    deadline: "Aug 2025",
-                    status: "Delayed",
-                    needForFunding: "high",
-                  }
-                ]
-                // Filter based on needForFunding UI selection
-                .filter(p => needForFundingFilter === "all" ? true : p.needForFunding === needForFundingFilter)
-                .map((project, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50"
-                    onClick={() => {
-                      const detail: GovOngoingDetail = {
-                        id: `ongoing-${index}`,
-                        title: project.title,
-                        funding: project.funding,
-                        status: project.status as GovOngoingDetail["status"],
-                        progress: project.progress,
-                        deadline: project.deadline,
-                        needForFunding: project.needForFunding as any,
-                        additionalFundingNeeded: project.needForFunding === "high" ? "₹5.0Cr" : project.needForFunding === "medium" ? "₹2.0Cr" : "₹0.5Cr",
-                        fundingNeedReason: project.needForFunding === "high" ? [
-                          "Scope expansion to additional districts",
-                          "Increased material costs due to market volatility",
-                          "Contingency buffer for monsoon disruptions",
-                        ] : project.needForFunding === "medium" ? [
-                          "Acceleration of community outreach",
-                          "Upgrade of monitoring equipment",
-                        ] : [
-                          "Buffer for unforeseen field logistics",
-                        ],
-                        dailyWork: [
-                          { date: "Aug 14", tasks: ["Field survey", "Vendor RFQs"], progress: Math.max(0, project.progress - 12) },
-                          { date: "Aug 15", tasks: ["Community meeting", "Material dispatch"], progress: Math.max(0, project.progress - 8) },
-                          { date: "Aug 16", tasks: ["Site prep", "Permit follow-up"], progress: Math.max(0, project.progress - 6) },
-                          { date: "Aug 17", tasks: ["Installation", "Training"], progress: Math.max(0, project.progress - 4) },
-                          { date: "Aug 18", tasks: ["Quality checks", "Data logging"], progress: Math.max(0, project.progress - 2) },
-                          { date: "Aug 19", tasks: ["Implementation", "Stakeholder review"], progress: project.progress },
-                        ],
-                        metricsSeries: [
-                          { date: "Aug 14", progress: Math.max(0, project.progress - 12), target: 50 },
-                          { date: "Aug 15", progress: Math.max(0, project.progress - 8), target: 55 },
-                          { date: "Aug 16", progress: Math.max(0, project.progress - 6), target: 60 },
-                          { date: "Aug 17", progress: Math.max(0, project.progress - 4), target: 65 },
-                          { date: "Aug 18", progress: Math.max(0, project.progress - 2), target: 70 },
-                          { date: "Aug 19", progress: project.progress, target: 75 },
-                        ],
-                        workstreams: [
-                          { name: "Procurement", progress: Math.min(100, project.progress + 5) },
-                          { name: "Implementation", progress: project.progress },
-                          { name: "Community Outreach", progress: Math.max(0, project.progress - 10) },
-                        ],
-                        issues: project.status === "Delayed" ? [
-                          { date: "Aug 2025", title: "Monsoon delays", severity: "medium", notes: "Site access constraints" }
-                        ] : [],
-                        team: [ { role: "PM", name: "Project Office" }, { role: "Field Lead", name: "Ops Team" } ]
-                      }
-                      setSelectedOngoing(detail)
-                      setOngoingModalOpen(true)
-                    }}
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium text-foreground">{project.title}</h4>
-                        <Badge
-                          variant={
-                            project.status === "On Track"
-                              ? "default"
-                              : project.status === "Delayed"
-                                ? "destructive"
-                                : "secondary"
-                          }
-                        >
-                          {project.status}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-6 text-sm text-muted-foreground mb-2">
-                        <span>Funding: {project.funding}</span>
-                        <span className="flex items-center">
-                          <Calendar className="w-3 h-3 mr-1" />
-                          {project.deadline}
-                        </span>
-                        <Badge variant="outline" className="capitalize">Need: {project.needForFunding}</Badge>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 bg-muted rounded-full h-2">
-                          <div
-                            className="bg-primary h-2 rounded-full transition-all"
-                            style={{ width: `${project.progress}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm font-medium">{project.progress}%</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )
-
-      case "daily-reports":
-        return <DailyReportsOverview />;
-
-      case "completed":
-        return (
-          <Card className="glass h-[calc(100vh-120px)]">
-            <CardHeader>
-              <CardTitle className="text-lg font-serif">Recently Completed Projects</CardTitle>
-            </CardHeader>
-            <CardContent className="h-[calc(100%-80px)] overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[ 
-                  {
-                    title: "Rewa Ultra Mega Solar Project",
-                    impact: "1.8 million tons CO₂ saved annually",
-                    funding: "₹45.5Cr",
-                    completion: "Jul 2025",
-                  },
-                  {
-                    title: "Ganga River Pollution Monitoring Network",
-                    impact: "125km waterway monitored with real-time data",
-                    funding: "₹28.7Cr",
-                    completion: "May 2025",
-                  },
-                  {
-                    title: "Delhi Green Belt Expansion",
-                    impact: "1.2 million trees planted across NCR",
-                    funding: "₹14.2Cr",
-                    completion: "Jun 2025",
-                  },
-                  {
-                    title: "Kaziranga Wildlife Corridor Protection",
-                    impact: "4 endangered species habitats connected",
-                    funding: "₹22.6Cr",
-                    completion: "Apr 2025",
-                  },
-                  {
-                    title: "Kochi Sustainable Fisheries Management",
-                    impact: "35% increase in fish stocks, 1200 fishermen benefited",
-                    funding: "₹9.8Cr",
-                    completion: "Mar 2025",
-                  },
-                  {
-                    title: "Sundarbans Climate Adaptation Initiative",
-                    impact: "85 villages protected from flooding, 30km embankments",
-                    funding: "₹37.2Cr",
-                    completion: "Feb 2025",
-                  }
-                ].map((project, index) => (
-                  <div key={index} className="p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => {
-                      const detail: GovCompletedDetail = {
-                        id: `completed-${index}`,
-                        title: project.title,
-                        completionDate: project.completion,
-                        funding: project.funding,
-                        impactSummary: project.impact,
-                        outcomes: [
-                          { label: "Primary Impact", value: project.impact },
-                          { label: "Budget Utilization", value: "98%" },
-                        ],
-                        metrics: project.title.includes("Solar") ? { co2ReductionTons: 1800000 } : undefined,
-                        lessons: ["Ensure early stakeholder alignment", "Buffer time for seasonal delays"]
-                      }
-                      setSelectedCompleted(detail)
-                      setCompletedModalOpen(true)
-                    }}
-                  >
-                    <div className="w-full h-24 bg-gradient-to-br from-emerald-100 to-cyan-100 rounded-lg mb-3 flex items-center justify-center">
-                      <CheckCircle className="w-8 h-8 text-emerald-600" />
-                    </div>
-                    <h4 className="font-medium text-foreground mb-1">{project.title}</h4>
-                    <p className="text-sm text-emerald-600 mb-2">{project.impact}</p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{project.funding}</span>
-                      <Badge variant="outline">{project.completion}</Badge>
-                    </div>
-                    <div className="mt-2 flex justify-end">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          const detail: GovCompletedDetail = {
-                            id: `completed-${index}`,
-                            title: project.title,
-                            completionDate: project.completion,
-                            funding: project.funding,
-                            impactSummary: project.impact,
-                            outcomes: [
-                              { label: "Primary Impact", value: project.impact },
-                              { label: "Budget Utilization", value: "98%" },
-                            ],
-                            metrics: project.title.includes("Solar") ? { co2ReductionTons: 1800000 } : undefined,
-                            lessons: ["Ensure early stakeholder alignment", "Buffer time for seasonal delays"]
-                          }
-                          setSelectedCompleted(detail)
-                          setCompletedModalOpen(true)
-                        }}
-                      >
-                        View Details
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )
-
-      case "unsdg":
-        return (
-              <Card className="glass h-[calc(100vh-120px)]">
-            <CardHeader>
-              <CardTitle className="text-lg font-serif">UN Sustainable Development Goals</CardTitle>
-            </CardHeader>
-            <CardContent className="h-[calc(100%-80px)] overflow-y-auto">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="sdg13">Goal 13: Climate Action</TabsTrigger>
-                  <TabsTrigger value="sdg14">Goal 14: Life Below Water</TabsTrigger>
-                  <TabsTrigger value="sdg15">Goal 15: Life On Land</TabsTrigger>
-                </TabsList>
-                <TabsContent value="sdg13" className="mt-4">
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="w-16 h-16 rounded-full bg-[#3f7e44] flex items-center justify-center text-white font-bold">
-                        SDG 13
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold">Climate Action</h3>
-                        <p className="text-muted-foreground">Take urgent action to combat climate change and its impacts</p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Carbon Emissions */}
-                      <Card className="glass">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">Carbon Emissions</span>
-                            <Badge variant="outline" className="bg-[#3f7e44]/10">{carbonReductionCount.toLocaleString()} tons</Badge>
-                          </div>
-                          <LineActualTarget
-                            labels={["Apr","May","Jun","Jul","Aug"]}
-                            actual={[1800, 2100, 2400, 2650, 2850]}
-                            target={[1900, 2200, 2500, 2800, 3200]}
-                            color="#3f7e44"
-                          />
-                          <div className="flex justify-between items-center mt-2 text-xs">
-                            <span className="text-muted-foreground">Current progress</span>
-                            <span className="font-medium">89% of target</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                      
-                      {/* Renewable Energy */}
-                      <Card className="glass">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">Renewable Energy</span>
-                            <Badge variant="outline" className="bg-[#3f7e44]/10">28%</Badge>
-                          </div>
-                          <LineActualTarget
-                            labels={["Apr","May","Jun","Jul","Aug"]}
-                            actual={[16, 18, 22, 25, 28]}
-                            target={[18, 22, 28, 35, 40]}
-                            color="#3f7e44"
-                          />
-                          <div className="flex justify-between items-center mt-2 text-xs">
-                            <span className="text-muted-foreground">Current progress</span>
-                            <span className="font-medium">70% of target</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                      
-                      {/* Climate Resilient Communities */}
-                      <Card className="glass">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">Climate Resilient Communities</span>
-                            <Badge variant="outline" className="bg-[#3f7e44]/10">142</Badge>
-                          </div>
-                          <LineActualTarget
-                            labels={["Apr","May","Jun","Jul","Aug"]}
-                            actual={[86, 95, 110, 128, 142]}
-                            target={[90, 110, 130, 160, 200]}
-                            color="#3f7e44"
-                          />
-                          <div className="flex justify-between items-center mt-2 text-xs">
-                            <span className="text-muted-foreground">Current progress</span>
-                            <span className="font-medium">71% of target</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                    
-                    <div className="mt-4 space-y-2">
-                      <h4 className="text-sm font-medium">Key Targets</h4>
-                      <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-                        <li>Strengthen resilience to climate-related hazards</li>
-                        <li>Integrate climate change measures into policies</li>
-                        <li>Improve education and awareness on climate change</li>
-                      </ul>
-                    </div>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="sdg14" className="mt-4">
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="w-16 h-16 rounded-full bg-[#0a97d9] flex items-center justify-center text-white font-bold">
-                        SDG 14
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold">Life Below Water</h3>
-                        <p className="text-muted-foreground">Conserve and sustainably use the oceans, seas and marine resources</p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Marine Areas Protected */}
-                      <Card className="glass">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">Marine Areas Protected</span>
-                            <Badge variant="outline" className="bg-[#0a97d9]/10">35%</Badge>
-                          </div>
-                          <LineActualTarget
-                            labels={["Apr","May","Jun","Jul","Aug"]}
-                            actual={[22, 25, 28, 32, 35]}
-                            target={[25, 30, 35, 43, 50]}
-                            color="#0a97d9"
-                          />
-                          <div className="flex justify-between items-center mt-2 text-xs">
-                            <span className="text-muted-foreground">Current progress</span>
-                            <span className="font-medium">70% of target</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                      
-                      {/* Ocean Area Cleaned */}
-                      <Card className="glass">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">Ocean Area Cleaned</span>
-                            <Badge variant="outline" className="bg-[#0a97d9]/10">{oceanAreaCount} km²</Badge>
-                          </div>
-                          <LineActualTarget
-                            labels={["Apr","May","Jun","Jul","Aug"]}
-                            actual={[520, 610, 690, 740, 780]}
-                            target={[550, 650, 750, 850, 1000]}
-                            color="#0a97d9"
-                          />
-                          <div className="flex justify-between items-center mt-2 text-xs">
-                            <span className="text-muted-foreground">Current progress</span>
-                            <span className="font-medium">78% of target</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                      
-                      {/* Fish Stocks */}
-                      <Card className="glass">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">Fish Stocks at Sustainable Levels</span>
-                            <Badge variant="outline" className="bg-[#0a97d9]/10">72%</Badge>
-                          </div>
-                          <LineActualTarget
-                            labels={["Apr","May","Jun","Jul","Aug"]}
-                            actual={[59, 63, 68, 70, 72]}
-                            target={[65, 70, 75, 80, 85]}
-                            color="#0a97d9"
-                          />
-                          <div className="flex justify-between items-center mt-2 text-xs">
-                            <span className="text-muted-foreground">Current progress</span>
-                            <span className="font-medium">85% of target</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                    
-                    <div className="mt-4 space-y-2">
-                      <h4 className="text-sm font-medium">Key Targets</h4>
-                      <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-                        <li>Prevent and reduce marine pollution</li>
-                        <li>Sustainably manage and protect marine ecosystems</li>
-                        <li>Minimize impacts of ocean acidification</li>
-                      </ul>
-                    </div>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="sdg15" className="mt-4">
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="w-16 h-16 rounded-full bg-[#56c02b] flex items-center justify-center text-white font-bold">
-                        SDG 15
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold">Life on Land</h3>
-                        <p className="text-muted-foreground">Protect, restore and promote sustainable use of terrestrial ecosystems</p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Forest Area */}
-                      <Card className="glass">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">Forest Area</span>
-                            <Badge variant="outline" className="bg-[#56c02b]/10">32%</Badge>
-                          </div>
-                          <LineActualTarget
-                            labels={["Apr","May","Jun","Jul","Aug"]}
-                            actual={[27, 28, 30, 31, 32]}
-                            target={[28, 30, 33, 36, 40]}
-                            color="#56c02b"
-                          />
-                          <div className="flex justify-between items-center mt-2 text-xs">
-                            <span className="text-muted-foreground">Current progress</span>
-                            <span className="font-medium">80% of target</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                      
-                      {/* Species Protected */}
-                      <Card className="glass">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">Species Protected</span>
-                            <Badge variant="outline" className="bg-[#56c02b]/10">{speciesCount} species</Badge>
-                          </div>
-                          <LineActualTarget
-                            labels={["Apr","May","Jun","Jul","Aug"]}
-                            actual={[24, 33, 41, 47, 47]}
-                            target={[30, 40, 45, 52, 60]}
-                            color="#56c02b"
-                          />
-                          <div className="flex justify-between items-center mt-2 text-xs">
-                            <span className="text-muted-foreground">Current progress</span>
-                            <span className="font-medium">78% of target</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                      
-                      {/* Land Restored */}
-                      <Card className="glass">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">Land Restored</span>
-                            <Badge variant="outline" className="bg-[#56c02b]/10">1250 hectares</Badge>
-                          </div>
-                          <LineActualTarget
-                            labels={["Apr","May","Jun","Jul","Aug"]}
-                            actual={[650, 820, 980, 1100, 1250]}
-                            target={[800, 1000, 1300, 1600, 2000]}
-                            color="#56c02b"
-                          />
-                          <div className="flex justify-between items-center mt-2 text-xs">
-                            <span className="text-muted-foreground">Current progress</span>
-                            <span className="font-medium">63% of target</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                    
-                    <div className="mt-4 space-y-2">
-                      <h4 className="text-sm font-medium">Key Targets</h4>
-                      <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-                        <li>Ensure conservation and sustainable use of ecosystems</li>
-                        <li>Promote sustainable forest management</li>
-                        <li>Combat desertification and restore degraded land</li>
-                      </ul>
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        )
-
-      default:
-        return null
-    }
-  }
-
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [activeSection, setActiveSection] = useState("dashboard");
+  const [loadError, setLoadError] = useState("");
 
-  // Redirect users to their correct dashboard based on role
+  // ---- real data ----
+  const [requests, setRequests] = useState<GovRequest[]>([]);
+  const [ngos, setNgos] = useState<NgoDirectoryEntry[]>([]);
+  const [completedProjects, setCompletedProjects] = useState<CompletedProject[]>([]);
+  const [govProjects, setGovProjects] = useState<GovProject[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  // ---- detail dialogs ----
+  const [detailRequest, setDetailRequest] = useState<GovRequest | null>(null);
+  const [detailCompleted, setDetailCompleted] = useState<CompletedProject | null>(null);
+  const [expandedNgo, setExpandedNgo] = useState<string | null>(null);
+
+  // ---- funding review action state ----
+  const [approvedInputs, setApprovedInputs] = useState<Record<string, string>>({});
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const [acting, setActing] = useState(false);
+
+  // ---- create project form ----
+  const [formTitle, setFormTitle] = useState("");
+  const [formDescription, setFormDescription] = useState("");
+  const [formCategory, setFormCategory] = useState("");
+  const [formAddress, setFormAddress] = useState("");
+  const [formDistrict, setFormDistrict] = useState("");
+  const [formState, setFormState] = useState("");
+  const [formRoles, setFormRoles] = useState([{ title: "", slots: "" }]);
+  const [creating, setCreating] = useState(false);
+
+  // Redirect non-government roles.
   useEffect(() => {
-    if (!loading && user && user.role !== 'government') {
-      console.log(`Government dashboard: Redirecting ${user.role} user to their dashboard`);
+    if (!loading && user && user.role !== "government") {
       router.push(`/${user.role}`);
     }
   }, [user, loading, router]);
 
-  // Show loading only while auth provider is loading
-  if (loading) {
+  const loadAll = useCallback(async () => {
+    setDataLoading(true);
+    setLoadError("");
+    try {
+      const [reqRes, dirRes, compRes, projRes] = await Promise.all([
+        fetch("/api/government/funding-requests", { credentials: "include" }),
+        fetch("/api/government/ngo-directory", { credentials: "include" }),
+        fetch("/api/government/completed-projects", { credentials: "include" }),
+        fetch("/api/government/projects", { credentials: "include" }),
+      ]);
+      const [reqData, dirData, compData, projData] = await Promise.all([
+        reqRes.json(),
+        dirRes.json(),
+        compRes.json(),
+        projRes.json(),
+      ]);
+      if (reqRes.ok && reqData.success) setRequests(reqData.requests || []);
+      if (dirRes.ok && dirData.success) setNgos(dirData.ngos || []);
+      if (compRes.ok && compData.success) setCompletedProjects(compData.completed || []);
+      if (projRes.ok && projData.success) setGovProjects(projData.projects || []);
+      if (!reqRes.ok || !reqData.success) {
+        setLoadError(reqData.message || "Could not load dashboard data.");
+      }
+    } catch (e) {
+      console.error("gov dashboard load error:", e);
+      setLoadError("Could not load dashboard data.");
+    } finally {
+      setDataLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!loading && user?.role === "government") loadAll();
+  }, [user, loading, loadAll]);
+
+  // ---- derived buckets ----
+  const pendingConfirm = useMemo(() => requests.filter((r) => r.status === "submitted"), [requests]);
+  const pendingPayment = useMemo(
+    () => requests.filter((r) => r.status === "approved" && r.paymentStatus === "pending"),
+    [requests]
+  );
+  const fundedRequests = useMemo(
+    () => requests.filter((r) => r.status === "funded" || r.paymentStatus === "completed"),
+    [requests]
+  );
+  const ongoingFunded = useMemo(
+    () => fundedRequests.filter((r) => r.project && r.project.status !== "completed"),
+    [fundedRequests]
+  );
+  const totalVolunteers = useMemo(
+    () => ngos.reduce((sum, n) => sum + (n.totals?.volunteers || 0), 0),
+    [ngos]
+  );
+  const approvedMoney = useMemo(
+    () =>
+      fundedRequests.reduce((sum, r) => {
+        const n = parseFloat((r.approvedFunding || r.projectFunding || "").replace(/[₹,CrL ]/g, "")) || 0;
+        return sum + n;
+      }, 0),
+    [fundedRequests]
+  );
+
+  // ---- actions ----
+  const act = async (payload: Record<string, unknown>, requestId: string) => {
+    setActing(true);
+    try {
+      const res = await fetch("/api/government/funding-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message || "Done.");
+        setDetailRequest(null);
+        await loadAll();
+      } else {
+        toast.error(data.message || "Action failed.");
+      }
+    } catch (e) {
+      toast.error("Action failed.");
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const createProject = async () => {
+    if (!formTitle.trim() || !formDescription.trim()) {
+      toast.error("Title and description are required.");
+      return;
+    }
+    const roles = formRoles
+      .map((r) => ({ title: r.title.trim(), slots: Number(r.slots) }))
+      .filter((r) => r.title);
+    if (roles.length === 0) {
+      toast.error("Add at least one volunteer role with openings.");
+      return;
+    }
+    setCreating(true);
+    try {
+      const res = await fetch("/api/government/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: formTitle.trim(),
+          description: formDescription.trim(),
+          category: formCategory,
+          location: { address: formAddress.trim(), district: formDistrict.trim(), state: formState.trim() },
+          roles,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message || "Project created.");
+        setFormTitle("");
+        setFormDescription("");
+        setFormCategory("");
+        setFormAddress("");
+        setFormDistrict("");
+        setFormState("");
+        setFormRoles([{ title: "", slots: "" }]);
+        await loadAll();
+      } else {
+        toast.error(data.message || "Could not create the project.");
+      }
+    } catch (e) {
+      toast.error("Could not create the project.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  if (loading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-lg text-blue-700">Loading dashboard...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <Loader2 className="h-8 w-8 animate-spin text-sky-600" />
       </div>
     );
   }
 
+  const sectionTitle: Record<string, string> = {
+    "ngo-requested": "NGO Requested",
+    approved: "Approved Projects",
+    ongoing: "Ongoing Projects",
+    completed: "Completed Projects",
+    "create-project": "Create Project",
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
-      <header className="sticky top-0 z-50 glass border-b">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-              <Leaf className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-serif font-bold text-xl text-foreground">Government Portal</span>
-          </div>
-
-          <div className="flex-1 max-w-md mx-8">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search projects, requests, or metrics..."
-                className="pl-10 glass border-border/30"
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-              />
-            </div>
-          </div>
-
+    <div className="min-h-screen bg-slate-50">
+      {/* Top bar */}
+      <header className="sticky top-0 z-40 border-b border-sky-100 bg-white/95 backdrop-blur">
+        <div className="flex items-center justify-between px-5 py-3">
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="relative"
-              onClick={() => console.log("[v0] Notifications clicked")}
-            >
-              <Bell className="w-4 h-4" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </Button>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-600 text-white font-serif font-bold">
+              ₹
+            </div>
+            <div>
+              <h1 className="font-serif text-xl font-bold text-sky-950">Government Hub</h1>
+              <p className="text-xs text-muted-foreground">
+                {user.department || "Government"} · {user.name}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="relative hidden md:block">
+              <Bell className="h-5 w-5 text-muted-foreground" />
+              <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" />
+            </div>
             <UserMenu />
           </div>
         </div>
       </header>
 
       <div className="flex">
-        <aside className="w-64 glass border-r min-h-screen">
-          <nav className="p-4 space-y-2">
+        <aside className="min-h-screen w-64 border-r border-sky-100 bg-white">
+          <nav className="space-y-1 p-3">
             <Button
               variant={activeSection === "dashboard" ? "default" : "ghost"}
-              className={`w-full justify-between items-center ${
-                activeSection === "dashboard" ? "bg-primary text-primary-foreground" : ""
+              className={`w-full justify-start ${
+                activeSection === "dashboard" ? "bg-sky-600 text-white hover:bg-sky-700" : "hover:bg-sky-50"
               }`}
-              onClick={() => handleSidebarClick("dashboard")}
+              onClick={() => setActiveSection("dashboard")}
             >
-              <div className="flex items-center">
-                <LayoutDashboard className="w-4 h-4 mr-3" />
-                <span>Dashboard</span>
-              </div>
+              <ClipboardList className="mr-3 h-4 w-4" />
+              Dashboard
             </Button>
             <Link href="/government/issues">
-              <Button variant="ghost" className="w-full justify-start items-center">
-                <div className="flex items-center">
-                  <FileText className="w-4 h-4 mr-3" />
-                  <span>Citizen Reports</span>
-                </div>
+              <Button variant="ghost" className="w-full justify-start hover:bg-sky-50">
+                <FileText className="mr-3 h-4 w-4" />
+                Citizen Reports
               </Button>
             </Link>
             <Button
-              variant={activeSection === "new-requests" ? "default" : "ghost"}
-              className={`w-full justify-between items-center ${
-                activeSection === "new-requests" ? "bg-primary text-primary-foreground" : ""
+              variant={activeSection === "ngo-requested" ? "default" : "ghost"}
+              className={`w-full justify-between ${
+                activeSection === "ngo-requested" ? "bg-sky-600 text-white hover:bg-sky-700" : "hover:bg-sky-50"
               }`}
-              onClick={() => handleSidebarClick("new-requests")}
+              onClick={() => setActiveSection("ngo-requested")}
             >
-              <div className="flex items-center">
-                <FileText className="w-4 h-4 mr-3" />
-                <span>New Requests</span>
-              </div>
-              <Badge className="bg-red-100 text-red-700">12</Badge>
-            </Button>
-            <Button
-              variant={activeSection === "negotiating-proposals" ? "default" : "ghost"}
-              className={`w-full justify-between items-center ${
-                activeSection === "negotiating-proposals" ? "bg-primary text-primary-foreground" : ""
-              }`}
-              onClick={() => handleSidebarClick("negotiating-proposals")}
-            >
-              <div className="flex items-center">
-                <BarChart2 className="w-4 h-4 mr-3" />
-                <span>Negotiating Projects</span>
-              </div>
-              {negotiatingProposals.length > 0 && (
-                <div className="flex gap-1">
-                  {negotiatingProposals.filter(p => p.negotiation?.status === 'govt_offered').length > 0 && (
-                    <Badge className="bg-orange-100 text-orange-700">
-                      {negotiatingProposals.filter(p => p.negotiation?.status === 'govt_offered').length}
-                    </Badge>
-                  )}
-                  {negotiatingProposals.filter(p => p.negotiation?.status === 'ngo_countered').length > 0 && (
-                    <Badge className="bg-purple-100 text-purple-700">
-                      {negotiatingProposals.filter(p => p.negotiation?.status === 'ngo_countered').length}
-                    </Badge>
-                  )}
-                  {negotiatingProposals.filter(p => p.negotiation?.status === 'accepted').length > 0 && (
-                    <Badge className="bg-green-100 text-green-700">
-                      {negotiatingProposals.filter(p => p.negotiation?.status === 'accepted').length}
-                    </Badge>
-                  )}
-                </div>
-              )}
-            </Button>
-            
-            <Button
-              variant={activeSection === "accepted-proposals" ? "default" : "ghost"}
-              className={`w-full justify-between items-center ${
-                activeSection === "accepted-proposals" ? "bg-primary text-primary-foreground" : ""
-              }`}
-              onClick={() => handleSidebarClick("accepted-proposals")}
-            >
-              <div className="flex items-center">
-                <HandCoins className="w-4 h-4 mr-3" />
-                <span>Approved Projects</span>
-              </div>
-              {acceptedProposals.length > 0 && (
-                <Badge className="bg-blue-100 text-blue-700">
-                  {acceptedProposals.length}
-                </Badge>
+              <span className="flex items-center">
+                <HandCoins className="mr-3 h-4 w-4" />
+                NGO Requested
+              </span>
+              {pendingConfirm.length + pendingPayment.length > 0 && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                  {pendingConfirm.length + pendingPayment.length}
+                </span>
               )}
             </Button>
             <Button
-              variant={activeSection === "ongoing-projects" ? "default" : "ghost"}
-              className={`w-full justify-between items-center ${
-                activeSection === "ongoing-projects" ? "bg-primary text-primary-foreground" : ""
+              variant={activeSection === "approved" ? "default" : "ghost"}
+              className={`w-full justify-between ${
+                activeSection === "approved" ? "bg-sky-600 text-white hover:bg-sky-700" : "hover:bg-sky-50"
               }`}
-              onClick={() => handleSidebarClick("ongoing-projects")}
+              onClick={() => setActiveSection("approved")}
             >
-              <div className="flex items-center">
-                <Clock className="w-4 h-4 mr-3" />
-                <span>Ongoing Projects</span>
-              </div>
+              <span className="flex items-center">
+                <BadgeCheck className="mr-3 h-4 w-4" />
+                Approved
+              </span>
+              {fundedRequests.length > 0 && (
+                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">
+                  {fundedRequests.length}
+                </span>
+              )}
+            </Button>
+            <Button
+              variant={activeSection === "ongoing" ? "default" : "ghost"}
+              className={`w-full ${
+                activeSection === "ongoing" ? "bg-sky-600 text-white hover:bg-sky-700" : "hover:bg-sky-50"
+              }`}
+              onClick={() => setActiveSection("ongoing")}
+            >
+              <Clock className="mr-3 h-4 w-4" />
+              Ongoing Projects
             </Button>
             <Button
               variant={activeSection === "completed" ? "default" : "ghost"}
-              className={`w-full justify-between items-center ${
-                activeSection === "completed" ? "bg-primary text-primary-foreground" : ""
+              className={`w-full justify-between ${
+                activeSection === "completed" ? "bg-sky-600 text-white hover:bg-sky-700" : "hover:bg-sky-50"
               }`}
-              onClick={() => handleSidebarClick("completed")}
+              onClick={() => setActiveSection("completed")}
             >
-              <div className="flex items-center">
-                <CheckCircle className="w-4 h-4 mr-3" />
-                <span>Completed</span>
-              </div>
+              <span className="flex items-center">
+                <CheckCircle2 className="mr-3 h-4 w-4" />
+                Completed
+              </span>
+              {completedProjects.length > 0 && (
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">
+                  {completedProjects.length}
+                </span>
+              )}
             </Button>
-            <Button
-              variant={activeSection === "daily-reports" ? "default" : "ghost"}
-              className={`w-full justify-between items-center ${
-                activeSection === "daily-reports" ? "bg-primary text-primary-foreground" : ""
-              }`}
-              onClick={() => handleSidebarClick("daily-reports")}
-            >
-              <div className="flex items-center">
-                <FileText className="w-4 h-4 mr-3" />
-                <span>Daily Reports</span>
-              </div>
-            </Button>
-            <Button
-              variant={activeSection === "unsdg" ? "default" : "ghost"}
-              className={`w-full justify-between items-center ${
-                activeSection === "unsdg" ? "bg-primary text-primary-foreground" : ""
-              }`}
-              onClick={() => handleSidebarClick("unsdg")}
-            >
-              <div className="flex items-center">
-                <BarChart3 className="w-4 h-4 mr-3" />
-                <span>UNSDG</span>
-              </div>
-            </Button>
+            <div className="pt-2">
+              <Button
+                variant={activeSection === "create-project" ? "default" : "ghost"}
+                className={`w-full justify-start ${
+                  activeSection === "create-project"
+                    ? "bg-sky-600 text-white hover:bg-sky-700"
+                    : "hover:bg-sky-50"
+                }`}
+                onClick={() => setActiveSection("create-project")}
+              >
+                <Plus className="mr-3 h-4 w-4" />
+                Create Project
+              </Button>
+            </div>
           </nav>
         </aside>
 
-        <main className="flex-1 p-6 space-y-6">{renderActiveSection()}</main>
+        <main className="flex-1 p-6">
+          {/* ================= Dashboard ================= */}
+          {activeSection === "dashboard" && (
+            <div className="space-y-6">
+              {sectionHeaderPrompt("dashboard")}
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+                <StatCard
+                  label="NGO requests to review"
+                  value={pendingConfirm.length + pendingPayment.length}
+                  note={
+                    pendingConfirm.length
+                      ? `${pendingConfirm.length} awaiting confirmation`
+                      : "Nothing awaiting confirmation"
+                  }
+                  color="text-amber-600"
+                  icon={<Clock className="h-6 w-6" />}
+                />
+                <StatCard
+                  label="Approved & paid"
+                  value={fundedRequests.length}
+                  note={`₹${approvedMoney.toFixed(2)}Cr approved in funding`}
+                  color="text-sky-600"
+                  icon={<BadgeCheck className="h-6 w-6" />}
+                />
+                <StatCard
+                  label="Completed projects"
+                  value={completedProjects.length}
+                  note={`${completedProjects.reduce((s, c) => s + c.participants.length, 0)} volunteers took part`}
+                  color="text-green-600"
+                  icon={<CheckCircle2 className="h-6 w-6" />}
+                />
+                <StatCard
+                  label="Community volunteers"
+                  value={totalVolunteers}
+                  note={`across ${ngos.reduce((s, n) => s + n.totals.projects, 0)} NGO projects`}
+                  color="text-emerald-600"
+                  icon={<Users className="h-6 w-6" />}
+                />
+              </div>
+
+              {/* NGO directory */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="font-serif text-lg">Registered NGOs & Their Work</CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Click an NGO to see the projects it runs, its volunteers and its funding requests.
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm" className="bg-transparent" onClick={loadAll} disabled={dataLoading}>
+                    <RefreshCw className={`mr-2 h-4 w-4 ${dataLoading ? "animate-spin" : ""}`} />
+                    Refresh
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {dataLoading ? (
+                    <div className="flex justify-center py-10">
+                      <Loader2 className="h-6 w-6 animate-spin text-sky-500" />
+                    </div>
+                  ) : ngos.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-muted-foreground">No NGOs registered yet.</p>
+                  ) : (
+                    ngos.map((ngo) => (
+                      <div key={ngo.id} className="rounded-lg border border-sky-100 bg-white">
+                        <button
+                          className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-left hover:bg-sky-50/60"
+                          onClick={() => setExpandedNgo(expandedNgo === ngo.id ? null : ngo.id)}
+                        >
+                          <div>
+                            <h4 className="font-semibold text-sky-950">{ngo.name}</h4>
+                            <p className="text-xs text-muted-foreground">
+                              {ngo.contactName} · {ngo.email}
+                              {ngo.registrationNumber ? ` · Reg ${ngo.registrationNumber}` : ""} · member since{" "}
+                              {dateLabel(ngo.memberSince)}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <ClipboardList className="h-3.5 w-3.5" />
+                              {ngo.totals.projects} project{ngo.totals.projects === 1 ? "" : "s"}
+                            </span>
+                            <span className="flex items-center gap-1 text-emerald-700">
+                              <Users className="h-3.5 w-3.5" />
+                              {ngo.totals.volunteers} volunteer{ngo.totals.volunteers === 1 ? "" : "s"}
+                            </span>
+                            <span className="flex items-center gap-1 text-sky-700">
+                              <HandCoins className="h-3.5 w-3.5" />
+                              {ngo.totals.fundingRequests} funding request
+                              {ngo.totals.fundingRequests === 1 ? "" : "s"}
+                            </span>
+                            <span className="flex items-center gap-1 text-green-700">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              {ngo.totals.completed} completed
+                            </span>
+                            {expandedNgo === ngo.id ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </div>
+                        </button>
+
+                        {expandedNgo === ngo.id && (
+                          <div className="grid gap-4 border-t border-sky-100 bg-slate-50/60 p-4 md:grid-cols-2">
+                            <div>
+                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+                                Projects
+                              </p>
+                              {ngo.projects.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">No projects posted yet.</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  {ngo.projects.map((p) => (
+                                    <div key={p.id} className="flex items-center justify-between rounded-md bg-white px-3 py-2 text-sm">
+                                      <div>
+                                        <p className="font-medium">{p.title}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {p.volunteers} volunteer{p.volunteers === 1 ? "" : "s"} joined
+                                        </p>
+                                      </div>
+                                      <Badge
+                                        variant="outline"
+                                        className={
+                                          p.status === "completed"
+                                            ? "bg-green-100 text-green-800 border-green-300"
+                                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        }
+                                      >
+                                        {p.status === "completed" ? "Completed" : "Open"}
+                                      </Badge>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+                                Funding requests
+                              </p>
+                              {ngo.fundingRequests.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">No funding requests made.</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  {ngo.fundingRequests.map((r) => (
+                                    <div key={r.id} className="flex items-center justify-between rounded-md bg-white px-3 py-2 text-sm">
+                                      <div>
+                                        <p className="font-medium">{r.title}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          requested {r.funding} · {dateLabel(r.submittedAt)}
+                                        </p>
+                                      </div>
+                                      <Badge
+                                        variant="outline"
+                                        className={
+                                          r.status === "funded"
+                                            ? "bg-sky-100 text-sky-800 border-sky-300"
+                                            : r.status === "approved"
+                                              ? "bg-amber-100 text-amber-800 border-amber-300"
+                                              : "bg-stone-100 text-stone-700 border-stone-200"
+                                        }
+                                      >
+                                        {r.status === "funded" ? "Approved & paid" : r.status === "approved" ? "Payment pending" : "Awaiting review"}
+                                      </Badge>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Latest NGO requests preview */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="font-serif text-lg">Latest NGO Requests</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {pendingConfirm.length + pendingPayment.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">
+                      No pending NGO requests. Everything submitted has been reviewed.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {[...pendingConfirm, ...pendingPayment].slice(0, 5).map((r) => (
+                        <div
+                          key={r._id}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-sky-100 bg-white px-4 py-3 hover:bg-sky-50/60"
+                        >
+                          <div>
+                            <h4 className="font-medium">{r.title}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {r.ngoName} · {r.projectFunding} · {dateLabel(r.submittedAt)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className={
+                                r.status === "approved"
+                                  ? "bg-amber-100 text-amber-800 border-amber-300"
+                                  : "bg-stone-100 text-stone-700 border-stone-200"
+                              }
+                            >
+                              {r.status === "approved" ? "Payment pending" : "Awaiting confirmation"}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setActiveSection("ngo-requested");
+                                setDetailRequest(r);
+                              }}
+                            >
+                              Review
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* ================= NGO Requested ================= */}
+          {activeSection === "ngo-requested" && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-sky-950">NGO Requested</h2>
+                <p className="text-sm text-muted-foreground">
+                  Funding requests made by NGOs. Confirm and fix funding, then release the payment —
+                  approved requests move to Approved once payment is complete.
+                </p>
+              </div>
+
+              {dataLoading ? (
+                <div className="flex justify-center py-16">
+                  <Loader2 className="h-7 w-7 animate-spin text-sky-500" />
+                </div>
+              ) : pendingConfirm.length + pendingPayment.length === 0 ? (
+                <Card>
+                  <CardContent className="py-14 text-center">
+                    <HandCoins className="mx-auto mb-3 h-10 w-10 text-sky-200" />
+                    <p className="font-medium">No requests to review</p>
+                    <p className="text-sm text-muted-foreground">
+                      NGO funding requests land here with evidence of the volunteers already signed up.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                [...pendingConfirm, ...pendingPayment].map((r) => (
+                  <Card key={r._id} className="border-sky-100">
+                    <CardContent className="p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="mb-1 flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold text-sky-950">{r.title}</h3>
+                            <Badge
+                              variant="outline"
+                              className={
+                                r.status === "approved"
+                                  ? "bg-amber-100 text-amber-800 border-amber-300"
+                                  : "bg-stone-100 text-stone-700 border-stone-200"
+                              }
+                            >
+                              {r.status === "approved" ? "Approved — payment pending" : "Pending confirmation"}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{r.ngoName}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3.5 w-3.5" />
+                              {r.location}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <DollarSign className="h-3.5 w-3.5" />
+                              Requested {r.projectFunding}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Building2 className="h-3.5 w-3.5" />
+                              {r.department}
+                            </span>
+                            {r.volunteerCount > 0 && (
+                              <span className="flex items-center gap-1 font-medium text-emerald-700">
+                                <Users className="h-3.5 w-3.5" />
+                                {r.volunteerCount} volunteer{r.volunteerCount === 1 ? "" : "s"} joined
+                              </span>
+                            )}
+                            <span className="flex items-center gap-1">
+                              <FileText className="h-3.5 w-3.5" />
+                              submitted {dateLabel(r.submittedAt)}
+                            </span>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          className="bg-sky-600 hover:bg-sky-700 text-white"
+                          onClick={() => setDetailRequest(r)}
+                        >
+                          View Details
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* ================= Approved ================= */}
+          {activeSection === "approved" && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-sky-950">Approved Projects</h2>
+                <p className="text-sm text-muted-foreground">
+                  NGO projects whose funding the government approved and paid. The NGO's project
+                  photos, documentation and funding details are shown on each card.
+                </p>
+              </div>
+              {dataLoading ? (
+                <div className="flex justify-center py-16">
+                  <Loader2 className="h-7 w-7 animate-spin text-sky-500" />
+                </div>
+              ) : fundedRequests.length === 0 ? (
+                <Card>
+                  <CardContent className="py-14 text-center">
+                    <BadgeCheck className="mx-auto mb-3 h-10 w-10 text-sky-200" />
+                    <p className="font-medium">Nothing approved yet</p>
+                    <p className="text-sm text-muted-foreground">
+                      Approve a request in NGO Requested and release its payment to move it here.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {fundedRequests.map((r) => (
+                    <Card key={r._id} className="border-sky-100">
+                      <CardContent className="p-5">
+                        {r.workEvidence.media.length > 0 && (
+                          <div className="mb-3 flex gap-2 overflow-x-auto">
+                            {r.workEvidence.media.slice(0, 3).map((m, i) => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={i}
+                                src={m.url}
+                                alt=""
+                                className="h-20 w-28 shrink-0 rounded-md object-cover"
+                              />
+                            ))}
+                          </div>
+                        )}
+                        <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold text-sky-950">{r.title}</h3>
+                          <Badge className="bg-sky-100 text-sky-800 border-sky-300">Approved & paid</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{r.ngoName}</p>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                          <div className="rounded-md bg-sky-50 px-2.5 py-1.5">
+                            <span className="text-muted-foreground">Approved funding</span>
+                            <p className="font-semibold text-sky-800">{r.approvedFunding || r.projectFunding}</p>
+                          </div>
+                          <div className="rounded-md bg-sky-50 px-2.5 py-1.5">
+                            <span className="text-muted-foreground">Payment</span>
+                            <p className="font-semibold text-sky-800">
+                              {r.fundedAt ? `Released ${dateLabel(r.fundedAt)}` : "Completed"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                          {r.volunteerCount > 0 && (
+                            <span className="flex items-center gap-1 text-emerald-700">
+                              <Users className="h-3.5 w-3.5" />
+                              {r.volunteerCount} volunteers
+                            </span>
+                          )}
+                          {r.workEvidence.mediaCount > 0 && (
+                            <span>📷 {r.workEvidence.mediaCount} photos/videos</span>
+                          )}
+                          {r.workEvidence.documentCount > 0 && (
+                            <span>📄 {r.workEvidence.documentCount} documents</span>
+                          )}
+                          {r.project && (
+                            <span className="flex items-center gap-1">
+                              <TrendingUp className="h-3.5 w-3.5" />
+                              progress {r.project.progress}%
+                            </span>
+                          )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-3 w-full bg-transparent"
+                          onClick={() => setDetailRequest(r)}
+                        >
+                          View full details
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ================= Ongoing ================= */}
+          {activeSection === "ongoing" && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-sky-950">Ongoing Projects</h2>
+                <p className="text-sm text-muted-foreground">
+                  Approved, paid NGO projects that are still running, with the progress the NGOs
+                  report from their workspaces.
+                </p>
+              </div>
+              {dataLoading ? (
+                <div className="flex justify-center py-16">
+                  <Loader2 className="h-7 w-7 animate-spin text-sky-500" />
+                </div>
+              ) : ongoingFunded.length === 0 ? (
+                <Card>
+                  <CardContent className="py-14 text-center">
+                    <Clock className="mx-auto mb-3 h-10 w-10 text-sky-200" />
+                    <p className="font-medium">No ongoing projects</p>
+                    <p className="text-sm text-muted-foreground">
+                      Paid projects still in execution will show their progress here.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                [...ongoingFunded].map((r) => (
+                  <Card key={r._id} className="border-sky-100">
+                    <CardContent className="p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="mb-1 flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold text-sky-950">{r.title}</h3>
+                            <Badge variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-700">
+                              In progress
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {r.ngoName} · approved funding {r.approvedFunding || r.projectFunding}
+                          </p>
+                        </div>
+                        <Button size="sm" variant="outline" className="bg-transparent" onClick={() => setDetailRequest(r)}>
+                          View Details
+                        </Button>
+                      </div>
+                      <div className="mt-3 flex items-center gap-3">
+                        <div className="flex-1 rounded-full bg-sky-100">
+                          <div
+                            className="h-3 rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 transition-all"
+                            style={{ width: `${r.project?.progress ?? 0}%` }}
+                          />
+                        </div>
+                        <span className="w-12 text-right text-sm font-semibold text-sky-700">
+                          {r.project?.progress ?? 0}%
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* ================= Completed ================= */}
+          {activeSection === "completed" && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-sky-950">Completed Projects</h2>
+                <p className="text-sm text-muted-foreground">
+                  NGO projects that finished, with the photos, videos, summary and participant list
+                  recorded by the NGO.
+                </p>
+              </div>
+              {dataLoading ? (
+                <div className="flex justify-center py-16">
+                  <Loader2 className="h-7 w-7 animate-spin text-sky-500" />
+                </div>
+              ) : completedProjects.length === 0 ? (
+                <Card>
+                  <CardContent className="py-14 text-center">
+                    <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-green-200" />
+                    <p className="font-medium">No completed projects yet</p>
+                    <p className="text-sm text-muted-foreground">
+                      When an NGO marks a project completed, it appears here with its evidence.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {completedProjects.map((c) => (
+                    <Card key={c.id} className="overflow-hidden border-sky-100">
+                      {c.media.some((m) => m.kind === "image") ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={c.media.find((m) => m.kind === "image")!.url}
+                          alt={c.title}
+                          className="h-36 w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-36 w-full items-center justify-center bg-gradient-to-br from-emerald-100 to-sky-100">
+                          <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                        </div>
+                      )}
+                      <CardContent className="p-4">
+                        <div className="mb-1 flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold text-sky-950">{c.title}</h3>
+                          <Badge className="bg-green-100 text-green-800 border-green-300">Completed</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{c.organisation}</p>
+                        {c.completedSummary && (
+                          <p className="mt-2 line-clamp-2 text-sm text-stone-600">{c.completedSummary}</p>
+                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Users className="h-3.5 w-3.5" />
+                            {c.participants.length} participant{c.participants.length === 1 ? "" : "s"}
+                          </span>
+                          <span>📷 {c.media.length} media</span>
+                          <span>{dateLabel(c.completedAt)}</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-3 w-full bg-transparent"
+                          onClick={() => setDetailCompleted(c)}
+                        >
+                          View photos & details
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ================= Create Project ================= */}
+          {activeSection === "create-project" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-sky-950">Create Project</h2>
+                <p className="text-sm text-muted-foreground">
+                  Open a volunteer project directly as the government. Community users see it in
+                  their Government Projects section and can join by picking a role. NGOs are not
+                  involved and won't see it on their dashboards.
+                </p>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="font-serif text-lg">New government project</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Project title</Label>
+                      <Input
+                        placeholder="e.g. City lake restoration drive"
+                        value={formTitle}
+                        onChange={(e) => setFormTitle(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Description</Label>
+                      <Textarea
+                        placeholder="What will volunteers do, and what impact will it have?"
+                        value={formDescription}
+                        onChange={(e) => setFormDescription(e.target.value)}
+                        className="min-h-[90px]"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Category</Label>
+                      <Select value={formCategory} onValueChange={setFormCategory}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Pick a category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PROJECT_CATEGORY_OPTIONS.filter((c) => c.value).map((c) => (
+                            <SelectItem key={c.value} value={c.value}>
+                              {c.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Address / site</Label>
+                      <Input
+                        placeholder="e.g. Rabindra Sarobar lake"
+                        value={formAddress}
+                        onChange={(e) => setFormAddress(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>District</Label>
+                      <Input value={formDistrict} onChange={(e) => setFormDistrict(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>State</Label>
+                      <Input value={formState} onChange={(e) => setFormState(e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <Label>Volunteer roles</Label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-transparent"
+                        onClick={() => setFormRoles((prev) => [...prev, { title: "", slots: "" }])}
+                      >
+                        <Plus className="mr-1 h-3.5 w-3.5" />
+                        Add role
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {formRoles.map((role, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <Input
+                            placeholder={`Role ${idx + 1} title (e.g. Cleanup crew)`}
+                            value={role.title}
+                            onChange={(e) =>
+                              setFormRoles((prev) =>
+                                prev.map((r, i) => (i === idx ? { ...r, title: e.target.value } : r))
+                              )
+                            }
+                            className="flex-1"
+                          />
+                          <Input
+                            type="number"
+                            min={1}
+                            placeholder="Slots"
+                            value={role.slots}
+                            onChange={(e) =>
+                              setFormRoles((prev) =>
+                                prev.map((r, i) => (i === idx ? { ...r, slots: e.target.value } : r))
+                              )
+                            }
+                            className="w-28"
+                          />
+                          {formRoles.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-700"
+                              onClick={() => setFormRoles((prev) => prev.filter((_, i) => i !== idx))}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Button
+                    className="bg-sky-600 hover:bg-sky-700 text-white"
+                    disabled={creating}
+                    onClick={createProject}
+                  >
+                    {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                    Publish project
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="font-serif text-lg">
+                    Your government projects ({govProjects.length})
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Only community users see these — NGOs don't.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {govProjects.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">
+                      No government projects created yet.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {govProjects.map((p) => (
+                        <div
+                          key={p.id}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-sky-100 px-4 py-3"
+                        >
+                          <div>
+                            <h4 className="font-medium">{p.title}</h4>
+                            <p className="text-xs text-muted-foreground">
+                              <MapPin className="mr-1 inline h-3 w-3" />
+                              {[p.location?.address, p.location?.district, p.location?.state]
+                                .filter(Boolean)
+                                .join(", ") || "Not specified"}{" "}
+                              · {p.totalFilled} of {p.totalSlots} slots filled
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className={STATUS_META[p.status]?.badge || "bg-stone-100 text-stone-600 border-stone-200"}
+                            >
+                              {STATUS_META[p.status]?.label || p.status}
+                            </Badge>
+                            <Link href={`/projects/${p.id}`}>
+                              <Button variant="outline" size="sm" className="bg-transparent">
+                                View
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </main>
       </div>
 
-      {/* Detail Modals */}
-      <GovRequestDetailsModal
-        request={selectedRequest}
-        open={requestModalOpen && selectedRequest !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setRequestModalOpen(false)
-            setSelectedRequest(null)
-          }
-        }}
-        onAcceptProposal={handleAcceptProposal}
-        onSendOffer={handleSendOffer}
-        onApproveProject={handleApproveProject}
-        onUploadPaymentReceipt={handleUploadPaymentReceipt}
-      />
+      {/* ================= Funding request detail dialog ================= */}
+      <Dialog open={detailRequest !== null} onOpenChange={(open) => !open && setDetailRequest(null)}>
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+          {detailRequest && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-serif text-xl text-sky-950">
+                  {detailRequest.title}
+                </DialogTitle>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <Badge
+                    variant="outline"
+                    className={
+                      detailRequest.status === "funded"
+                        ? "bg-sky-100 text-sky-800 border-sky-300"
+                        : detailRequest.status === "approved"
+                          ? "bg-amber-100 text-amber-800 border-amber-300"
+                          : "bg-stone-100 text-stone-700 border-stone-200"
+                    }
+                  >
+                    {detailRequest.status === "funded"
+                      ? "Approved & payment complete"
+                      : detailRequest.status === "approved"
+                        ? "Approved — payment pending"
+                        : "Awaiting government confirmation"}
+                  </Badge>
+                  {detailRequest.project?.status === "completed" && (
+                    <Badge className="bg-green-100 text-green-800 border-green-300">Project completed</Badge>
+                  )}
+                </div>
+              </DialogHeader>
 
-      <GovOngoingDetailsModal
-        project={selectedOngoing}
-        open={ongoingModalOpen && selectedOngoing !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setOngoingModalOpen(false)
-            setSelectedOngoing(null)
-          }
-        }}
-      />
+              <div className="grid gap-4 text-sm md:grid-cols-2">
+                <div className="rounded-lg bg-sky-50/70 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">NGO</p>
+                  <p className="mt-1 font-medium text-sky-950">{detailRequest.ngoName}</p>
+                  <p className="text-muted-foreground">{detailRequest.ngoEmail}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    commission to NGO: {detailRequest.ngoCommission}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-sky-50/70 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Funding</p>
+                  <p className="mt-1 font-medium text-sky-950">
+                    Requested: {detailRequest.projectFunding}
+                  </p>
+                  {detailRequest.approvedFunding && (
+                    <p className="text-sky-900">
+                      Approved: <span className="font-semibold">{detailRequest.approvedFunding}</span>
+                      {detailRequest.approvedAt && ` · ${dateLabel(detailRequest.approvedAt)}`}
+                    </p>
+                  )}
+                  {detailRequest.fundedAt && (
+                    <p className="text-xs text-emerald-700">
+                      Payment released {dateLabel(detailRequest.fundedAt)}
+                      {detailRequest.paymentRef ? ` · ref ${detailRequest.paymentRef}` : ""}
+                    </p>
+                  )}
+                  {detailRequest.approvedByGov?.name && (
+                    <p className="text-xs text-muted-foreground">
+                      Reviewed by {detailRequest.approvedByGov.name}
+                      {detailRequest.approvedNote ? ` — "${detailRequest.approvedNote}"` : ""}
+                    </p>
+                  )}
+                </div>
+                <div className="rounded-lg bg-stone-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Project</p>
+                  <p className="mt-1">{detailRequest.projectTitle}</p>
+                  <p className="text-xs text-muted-foreground">{detailRequest.projectLocation}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Timeline: {detailRequest.timeline}</p>
+                  <p className="text-xs text-muted-foreground">Department: {detailRequest.department}</p>
+                </div>
+                <div className="rounded-lg bg-stone-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+                    Volunteers ({detailRequest.volunteerCount})
+                  </p>
+                  {detailRequest.volunteers?.length ? (
+                    <ul className="mt-1 space-y-1 text-xs">
+                      {detailRequest.volunteers.slice(0, 8).map((v, i) => (
+                        <li key={i}>
+                          {v.name} · {v.roleTitle} · joined {dateLabel(v.joinedAt)}
+                        </li>
+                      ))}
+                      {detailRequest.volunteers.length > 8 && (
+                        <li className="text-muted-foreground">
+                          +{detailRequest.volunteers.length - 8} more
+                        </li>
+                      )}
+                    </ul>
+                  ) : (
+                    <p className="mt-1 text-xs text-muted-foreground">No volunteers recorded.</p>
+                  )}
+                </div>
+                <div className="md:col-span-2 rounded-lg bg-stone-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+                    NGO's proposal
+                  </p>
+                  <p className="mt-1 text-stone-700">{detailRequest.proposalSummary}</p>
+                  {detailRequest.description && (
+                    <p className="mt-2 text-stone-600">{detailRequest.description}</p>
+                  )}
+                  {detailRequest.implementationPlan && (
+                    <p className="mt-2 text-xs text-stone-600">
+                      <span className="font-semibold">Implementation:</span>{" "}
+                      {detailRequest.implementationPlan}
+                    </p>
+                  )}
+                  {detailRequest.expectedImpact && (
+                    <p className="mt-1 text-xs text-stone-600">
+                      <span className="font-semibold">Expected impact:</span> {detailRequest.expectedImpact}
+                    </p>
+                  )}
+                  {detailRequest.additionalNotes && (
+                    <p className="mt-1 text-xs text-stone-500">Note: {detailRequest.additionalNotes}</p>
+                  )}
+                </div>
 
-      <GovCompletedDetailsModal
-        project={selectedCompleted}
-        open={completedModalOpen && selectedCompleted !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setCompletedModalOpen(false)
-            setSelectedCompleted(null)
-          }
-        }}
-      />
+                {(detailRequest.workEvidence.media.length > 0 ||
+                  detailRequest.workEvidence.documents.length > 0) && (
+                  <div className="md:col-span-2 rounded-lg bg-stone-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+                      Work photos & documentation from the NGO
+                    </p>
+                    {detailRequest.workEvidence.media.length > 0 && (
+                      <div className="mt-2 flex gap-2 overflow-x-auto">
+                        {detailRequest.workEvidence.media.map((m, i) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={i} src={m.url} alt="" className="h-24 w-32 shrink-0 rounded-md object-cover" />
+                        ))}
+                      </div>
+                    )}
+                    {detailRequest.workEvidence.documents.length > 0 && (
+                      <ul className="mt-2 space-y-1 text-xs">
+                        {detailRequest.workEvidence.documents.map((d, i) => (
+                          <li key={i}>
+                            📄{" "}
+                            {d.url ? (
+                              <a href={d.url} target="_blank" rel="noreferrer" className="text-sky-700 hover:underline">
+                                {d.title}
+                              </a>
+                            ) : (
+                              d.title
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {detailRequest.project && (
+                  <div className="md:col-span-2 rounded-lg bg-stone-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+                      Live project progress
+                    </p>
+                    <div className="mt-2 flex items-center gap-3">
+                      <div className="flex-1 rounded-full bg-sky-100">
+                        <div
+                          className="h-3 rounded-full bg-gradient-to-r from-sky-500 to-cyan-400"
+                          style={{ width: `${detailRequest.project.progress}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-semibold text-sky-700">{detailRequest.project.progress}%</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions by state */}
+              {detailRequest.status === "submitted" && (
+                <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-4">
+                  <p className="mb-2 text-sm font-semibold text-sky-900">
+                    Confirm this request (payment stays pending)
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      placeholder="Approved funding (e.g. ₹2.4Cr)"
+                      value={approvedInputs[detailRequest._id] || ""}
+                      onChange={(e) =>
+                        setApprovedInputs((prev) => ({ ...prev, [detailRequest._id]: e.target.value }))
+                      }
+                      className="w-64"
+                    />
+                    <Input
+                      placeholder="Review note (optional)"
+                      value={reviewNotes[detailRequest._id] || ""}
+                      onChange={(e) =>
+                        setReviewNotes((prev) => ({ ...prev, [detailRequest._id]: e.target.value }))
+                      }
+                      className="min-w-[12rem] flex-1"
+                    />
+                    <Button
+                      className="bg-sky-600 hover:bg-sky-700 text-white"
+                      disabled={acting}
+                      onClick={() =>
+                        act(
+                          {
+                            action: "approve",
+                            id: detailRequest._id,
+                            approvedFunding: approvedInputs[detailRequest._id] || detailRequest.projectFunding,
+                            note: reviewNotes[detailRequest._id] || "",
+                          },
+                          detailRequest._id
+                        )
+                      }
+                    >
+                      {acting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BadgeCheck className="mr-2 h-4 w-4" />}
+                      Approve & confirm
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Leave the amount empty to approve the requested {detailRequest.projectFunding}.
+                  </p>
+                </div>
+              )}
+
+              {detailRequest.status === "approved" && detailRequest.paymentStatus === "pending" && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
+                  <p className="mb-2 text-sm font-semibold text-emerald-900">Release the payment</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      placeholder="Payment reference (optional)"
+                      value={reviewNotes[detailRequest._id] || ""}
+                      onChange={(e) =>
+                        setReviewNotes((prev) => ({ ...prev, [detailRequest._id]: e.target.value }))
+                      }
+                      className="min-w-[12rem] flex-1"
+                    />
+                    <Button
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      disabled={acting}
+                      onClick={() =>
+                        act(
+                          { action: "payment", id: detailRequest._id, ref: reviewNotes[detailRequest._id] || "" },
+                          detailRequest._id
+                        )
+                      }
+                    >
+                      {acting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                      Mark payment released
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Once released, the project moves to Approved Projects and shows its work photos.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ================= Completed project dialog ================= */}
+      <Dialog open={detailCompleted !== null} onOpenChange={(open) => !open && setDetailCompleted(null)}>
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+          {detailCompleted && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-serif text-xl text-sky-950">{detailCompleted.title}</DialogTitle>
+                <p className="text-sm text-muted-foreground">
+                  {detailCompleted.organisation} · {detailCompleted.location}
+                </p>
+              </DialogHeader>
+              {detailCompleted.completedSummary && (
+                <div className="rounded-lg bg-green-50 p-3 text-sm text-stone-700">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-green-700">
+                    Completion summary
+                  </p>
+                  <p className="mt-1">{detailCompleted.completedSummary}</p>
+                </div>
+              )}
+              {detailCompleted.media.length > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+                    Photos & videos
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                    {detailCompleted.media.map((m, i) =>
+                      m.kind === "video" ? (
+                        <video key={i} src={m.url} controls className="h-28 w-full rounded-md object-cover" />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img key={i} src={m.url} alt="" className="h-28 w-full rounded-md object-cover" />
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+                  Participants ({detailCompleted.participants.length})
+                </p>
+                {detailCompleted.participants.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No participants recorded.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {detailCompleted.participants.map((p) => (
+                      <span
+                        key={p.id}
+                        className="rounded-full bg-sky-50 px-3 py-1 text-sm text-sky-900"
+                        title={p.email}
+                      >
+                        <Users className="mr-1 inline h-3 w-3" />
+                        {p.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {detailCompleted.documents.length > 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+                    Documentation
+                  </p>
+                  <ul className="space-y-1 text-sm">
+                    {detailCompleted.documents.map((d, i) => (
+                      <li key={i}>
+                        📄{" "}
+                        {d.url ? (
+                          <a href={d.url} target="_blank" rel="noreferrer" className="text-sky-700 hover:underline">
+                            {d.title}
+                          </a>
+                        ) : (
+                          d.title
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Completed {dateLabel(detailCompleted.completedAt)} · {detailCompleted.attendanceDates.length}{" "}
+                attendance session{detailCompleted.attendanceDates.length === 1 ? "" : "s"} recorded
+              </p>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
-  )
+  );
+}
+
+// Local helpers ----------------------------------------------------------
+
+function sectionHeaderPrompt(section: string) {
+  if (section !== "dashboard") return null;
+  return (
+    <div>
+      <h2 className="font-serif text-2xl font-bold text-sky-950">Dashboard</h2>
+      <p className="text-sm text-muted-foreground">
+        NGO funding requests, approved works and everything happening across registered NGOs.
+      </p>
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  note,
+  color,
+  icon,
+}: {
+  label: string;
+  value: number | string;
+  note: string;
+  color: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <Card className="border-sky-100">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">{label}</p>
+            <p className={`text-2xl font-bold ${color}`}>{value}</p>
+            <p className="mt-1 text-xs text-stone-500">{note}</p>
+          </div>
+          <div className={`rounded-full bg-sky-50 p-3 ${color}`}>{icon}</div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }

@@ -2,73 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import connectDB from '@/lib/mongodb';
 import Project from '@/models/Project';
+import NGOLocalInitiative from '@/models/NgoFundRequest';
 import { requireRole } from '@/lib/session';
 import { membersForProjects, ngoIdentity } from '@/lib/project-service';
-
-// Simple schema for NGO local initiatives (funding requests)
-const ngoLocalInitiativeSchema = new mongoose.Schema({
-  // Linked volunteer project - the NGO can only ask the government for funds
-  // for a project it has already opened to volunteers and that has joins.
-  projectId: { type: String, default: '' },
-  projectTitle: { type: String, default: '' },
-  projectLocation: { type: String, default: '' },
-
-  // Evidence of community backing: who already joined the volunteer project
-  volunteerCount: { type: Number, default: 0 },
-  volunteers: [
-    {
-      id: String,
-      name: String,
-      email: String,
-      roleTitle: String,
-      joinedAt: Date,
-    },
-  ],
-
-  // Basic project info
-  title: { type: String, required: true },
-  description: { type: String, required: true },
-  location: { type: String, required: true },
-  projectFunding: { type: String, required: true },
-  timeline: { type: String, required: true },
-
-  // NGO info
-  ngoId: { type: String, required: true },
-  ngoName: { type: String, required: true },
-  ngoEmail: { type: String, required: true },
-  ngoCommission: { type: String, required: true },
-
-  // Government submission details
-  department: { type: String, required: true },
-  proposalSummary: { type: String, required: true },
-
-  // Project details
-  expectedImpact: { type: String },
-  implementationPlan: { type: String },
-  expectedStartDate: { type: String },
-  teamSize: { type: String },
-  experienceLevel: { type: String },
-  additionalNotes: { type: String },
-
-  // Categories and goals
-  categories: { type: [String], default: [] },
-  sdgGoals: { type: [String], default: [] },
-
-  // Key metrics
-  keyMetrics: {
-    volunteers: { type: String },
-    beneficiaries: { type: String },
-    areaImpact: { type: String },
-    carbonReduction: { type: String }
-  },
-
-  // Metadata
-  submittedAt: { type: Date, default: Date.now },
-  status: { type: String, default: 'submitted' }
-});
-
-const NGOLocalInitiative = mongoose.models.NGOLocalInitiative ||
-  mongoose.model('NGOLocalInitiative', ngoLocalInitiativeSchema);
 
 export async function POST(req: NextRequest) {
   try {

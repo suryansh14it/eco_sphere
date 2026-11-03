@@ -31,6 +31,7 @@ import {
   Route,
   Video,
   HelpCircle,
+  Landmark,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -182,6 +183,11 @@ export default function UserDashboard() {
   const [joinedProjectIds, setJoinedProjectIds] = useState(new Set<string>())
   const [projectsLoading, setProjectsLoading] = useState(true)
 
+  // Government-created projects: offered to community users in their own
+  // section (never shown to NGOs and never mixed with NGO volunteer work).
+  const [govtProjects, setGovtProjects] = useState<any[]>([])
+  const [govtProjectsLoading, setGovtProjectsLoading] = useState(true)
+
   // Get the current language object
   const currentLanguage = languageOptions.find(l => l.code === language) || languageOptions[0]
   
@@ -235,6 +241,31 @@ export default function UserDashboard() {
       cancelled = true;
     };
   }, [user, loading]);
+
+  // Government projects are loaded separately: they are community-joinable
+  // programmes the government opened directly.
+  useEffect(() => {
+    if (loading || !user || user.role !== "user") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/projects?source=government&limit=100");
+        const data = await res.json();
+        if (!cancelled) {
+          if (res.ok && data.success) {
+            setGovtProjects((data.projects || []).filter((p: any) => p.source === "government"));
+          }
+        }
+      } catch (e) {
+        console.error("Error loading government projects:", e);
+      } finally {
+        if (!cancelled) setGovtProjectsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, loading, joinedProjectIds]);
   
   // Update completedItems Set from array when available
   useEffect(() => {
@@ -766,6 +797,18 @@ export default function UserDashboard() {
               <FileText className="w-4 h-4 mr-3" />
               {t.reportIssue}
             </Button>
+            <Button
+              variant={activeSection === "govt-projects" ? "default" : "ghost"}
+              className={`w-full justify-start ${
+                activeSection === "govt-projects"
+                  ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                  : "hover:bg-emerald-50"
+              }`}
+              onClick={() => setActiveSection("govt-projects")}
+            >
+              <Landmark className="w-4 h-4 mr-3" />
+              Government Projects
+            </Button>
             <Link href="/issues">
               <Button variant="ghost" className="w-full justify-start hover:bg-emerald-50">
                 <Users className="w-4 h-4 mr-3" />
@@ -1038,6 +1081,119 @@ export default function UserDashboard() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === "govt-projects" && (
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle className="text-lg font-serif flex items-center gap-2">
+                  <Landmark className="w-5 h-5 text-sky-600" />
+                  Government Projects
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Volunteer projects opened directly by the government. Pick a role on the project
+                  page to join — NGOs are not part of these.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {govtProjectsLoading ? (
+                  <div className="py-10 text-center text-sm text-muted-foreground">
+                    Loading government projects...
+                  </div>
+                ) : govtProjects.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <Landmark className="mx-auto mb-3 h-10 w-10 text-sky-200" />
+                    <p className="font-medium text-foreground mb-1">No government projects yet</p>
+                    <p className="text-sm text-muted-foreground">
+                      When the government opens a volunteer project, it appears here first.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {govtProjects.map((project: any) => {
+                      const loc = [
+                        project.location?.address,
+                        project.location?.district,
+                        project.location?.state,
+                      ]
+                        .filter(Boolean)
+                        .join(", ");
+                      const joined = joinedProjectIds.has(project.id);
+                      const full = project.totalSlots > 0 && project.totalFilled >= project.totalSlots;
+                      return (
+                        <div
+                          key={project.id}
+                          className="p-4 rounded-lg border border-sky-200 bg-sky-50/50"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-foreground">{project.title}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                By <span className="font-medium">{project.ngo?.name}</span> (Government)
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {joined && (
+                                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Joined
+                                </Badge>
+                              )}
+                              <Badge variant="outline" className="bg-sky-100 text-sky-800 border-sky-200">
+                                Government project
+                              </Badge>
+                            </div>
+                          </div>
+                          <p className="text-sm text-stone-600 mb-3 line-clamp-2">{project.description}</p>
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-2">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3.5 w-3.5" />
+                              {loc || "Not specified"}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3.5 w-3.5" />
+                              {project.totalFilled} of {project.totalSlots} slots filled
+                            </span>
+                          </div>
+                          {project.roles?.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mb-3">
+                              {project.roles.map((role: any) => (
+                                <Badge
+                                  key={role.id}
+                                  variant="outline"
+                                  className={
+                                    role.filled >= role.slots
+                                      ? "bg-stone-100 text-stone-500 border-stone-200"
+                                      : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  }
+                                >
+                                  {role.title} · {role.slots - role.filled} of {role.slots} open
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          <Link href={`/projects/${project.id}`}>
+                            <Button
+                              size="sm"
+                              className="bg-sky-600 hover:bg-sky-700 text-white"
+                              disabled={project.status !== "open" || joined}
+                            >
+                              {joined
+                                ? "Already joined"
+                                : project.status !== "open"
+                                  ? "Not open for volunteers"
+                                  : full
+                                    ? "View project"
+                                    : "Pick a role & join"}
+                            </Button>
+                          </Link>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

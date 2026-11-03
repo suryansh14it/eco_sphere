@@ -22,6 +22,12 @@ export interface IProject extends Document {
     name: string;
     email: string;
   };
+  /**
+   * Who stands behind the project. `ngo` projects come from the volunteer
+   * board flow; `government` ones are created directly by a government
+   * official and are only visible to community users.
+   */
+  source: 'ngo' | 'government';
   location?: {
     address?: string;
     district?: string;
@@ -77,6 +83,12 @@ const ProjectSchema = new Schema<IProject>(
       name: { type: String, required: true },
       email: { type: String, required: true },
     },
+    source: {
+      type: String,
+      enum: ['ngo', 'government'],
+      default: 'ngo',
+      required: true,
+    },
     location: {
       address: { type: String, trim: true, maxlength: 300 },
       district: { type: String, trim: true, maxlength: 120 },
@@ -103,6 +115,7 @@ const ProjectSchema = new Schema<IProject>(
 ProjectSchema.index({ status: 1 });
 ProjectSchema.index({ category: 1 });
 ProjectSchema.index({ 'ngo.id': 1 });
+ProjectSchema.index({ source: 1 });
 ProjectSchema.index({ createdAt: -1 });
 
 export default mongoose.models.Project ||

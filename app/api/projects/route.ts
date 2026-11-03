@@ -38,6 +38,22 @@ export async function GET(req: NextRequest) {
 
     const query: Record<string, any> = {};
 
+    /**
+     * Source visibility. Government-created projects are a separate programme:
+     * they are only offered to community users through a dedicated feed, so
+     * the general board (and every existing consumer) sees NGO projects only.
+     * Explicit `source=government` and the owner/joined scopes can reach them.
+     */
+    if (searchParams.get('source') === 'government') {
+      query.source = 'government';
+    } else if (mine || joined) {
+      // Owner/joined scopes resolve their own filters below after auth;
+      // `joined` stays unfiltered by source so volunteers still see the
+      // government projects they are part of.
+    } else {
+      query.source = 'ngo';
+    }
+
     if (status) query.status = { $in: status.split(',').filter(Boolean) };
 
     if (category) query.category = category;

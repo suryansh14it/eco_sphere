@@ -144,6 +144,7 @@ export function serializeProject(
     title: project.title,
     description: project.description,
     category: project.category,
+    source: project.source || 'ngo',
     ngo: project.ngo,
     location: project.location || null,
     startsAt: project.startsAt || null,
