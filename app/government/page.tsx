@@ -388,13 +388,17 @@ export default function GovernmentDashboard() {
               }`}
               onClick={() => setActiveSection("dashboard")}
             >
-              <ClipboardList className="mr-3 h-4 w-4" />
-              Dashboard
+              <span className="flex items-center">
+                <ClipboardList className="mr-3 h-4 w-4" />
+                Dashboard
+              </span>
             </Button>
             <Link href="/government/issues">
               <Button variant="ghost" className="w-full justify-start hover:bg-sky-50">
-                <FileText className="mr-3 h-4 w-4" />
-                Citizen Reports
+                <span className="flex items-center">
+                  <FileText className="mr-3 h-4 w-4" />
+                  Citizen Reports
+                </span>
               </Button>
             </Link>
             <Button
@@ -467,27 +471,32 @@ export default function GovernmentDashboard() {
             </Button>
             <Button
               variant={activeSection === "gov-projects" ? "default" : "ghost"}
-              className={`w-full justify-start ${
-                activeSection === "gov-projects"
-                  ? "bg-sky-600 text-white hover:bg-sky-700"
-                  : "hover:bg-sky-50"
+              className={`w-full justify-between ${
+                activeSection === "gov-projects" ? "bg-sky-600 text-white hover:bg-sky-700" : "hover:bg-sky-50"
               }`}
               onClick={() => setActiveSection("gov-projects")}
             >
-              <Landmark className="mr-3 h-4 w-4" />
-              Government Projects
+              <span className="flex items-center">
+                <Landmark className="mr-3 h-4 w-4" />
+                Government Projects
+              </span>
+              {govProjects.length > 0 && (
+                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">
+                  {govProjects.length}
+                </span>
+              )}
             </Button>
             <Button
               variant={activeSection === "create-project" ? "default" : "ghost"}
-              className={`w-full justify-start ${
-                activeSection === "create-project"
-                  ? "bg-sky-600 text-white hover:bg-sky-700"
-                  : "hover:bg-sky-50"
+              className={`w-full justify-between ${
+                activeSection === "create-project" ? "bg-sky-600 text-white hover:bg-sky-700" : "hover:bg-sky-50"
               }`}
               onClick={() => setActiveSection("create-project")}
             >
-              <Plus className="mr-3 h-4 w-4" />
-              Create Project
+              <span className="flex items-center">
+                <Plus className="mr-3 h-4 w-4" />
+                Create Project
+              </span>
             </Button>
           </nav>
         </aside>
@@ -935,6 +944,9 @@ export default function GovernmentDashboard() {
                           <div>
                             <div className="mb-1 flex flex-wrap items-center gap-2">
                               <h3 className="font-semibold text-sky-950">{r.title}</h3>
+                              <Badge variant="outline" className="bg-blue-50 border-blue-200 text-blue-700">
+                                NGO project
+                              </Badge>
                               <Badge variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-700">
                                 In progress
                               </Badge>
@@ -977,6 +989,9 @@ export default function GovernmentDashboard() {
                             <CardContent className="p-5">
                               <div className="mb-1 flex flex-wrap items-center gap-2">
                                 <h3 className="font-semibold text-sky-950">{p.title}</h3>
+                                <Badge variant="outline" className="bg-sky-50 border-sky-200 text-sky-700">
+                                  Government project
+                                </Badge>
                                 <Badge variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-700">
                                   In progress
                                 </Badge>
@@ -1067,9 +1082,13 @@ export default function GovernmentDashboard() {
                         <div className="mb-1 flex flex-wrap items-center gap-2">
                           <h3 className="font-semibold text-sky-950">{c.title}</h3>
                           <Badge className="bg-green-100 text-green-800 border-green-300">Completed</Badge>
-                          {c.source === "government" && (
+                          {c.source === "government" ? (
                             <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200">
                               Government project
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                              NGO project
                             </Badge>
                           )}
                         </div>

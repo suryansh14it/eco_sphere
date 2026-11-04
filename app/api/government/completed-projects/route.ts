@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
         description: p.description,
         category: p.category,
         source: p.source || 'ngo',
-        organisation: p.ngo?.name || 'NGO',
+        organisation: p.source === 'government' ? 'Government' : (p.ngo?.name || 'NGO'),
         location: [p.location?.address, p.location?.district, p.location?.state]
           .filter(Boolean)
           .join(', '),
