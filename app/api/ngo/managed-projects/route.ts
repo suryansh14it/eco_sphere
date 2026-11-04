@@ -6,6 +6,7 @@ import ProjectMember from '@/models/ProjectMember';
 import Project from '@/models/Project';
 import Issue from '@/models/Issue';
 import IssueUpdate from '@/models/IssueUpdate';
+import NGOLocalInitiative from '@/models/NgoFundRequest';
 import {
   ATTENDANCE_XP,
   undertakingForNgo,
@@ -44,6 +45,23 @@ export async function GET(req: NextRequest) {
       const item = await undertakingForNgo(ngoId, key);
       if (!item) {
         return NextResponse.json({ success: false, message: 'Project not found in your management list.' }, { status: 404 });
+      }
+      // Government funding trail for volunteer projects — participants and
+      // the manager both see that the government paid (via Razorpay).
+      if (parseKey(key)?.kind === 'volunteer') {
+        const fundedRequest = (await NGOLocalInitiative.findOne({
+          projectId: item.refId,
+          paymentStatus: 'completed',
+        })
+          .sort({ fundedAt: -1 })
+          .lean()) as any;
+        if (fundedRequest) {
+          item.funding = {
+            paid: true,
+            amount: fundedRequest.approvedFunding || fundedRequest.projectFunding || '',
+            paidAt: fundedRequest.fundedAt || null,
+          };
+        }
       }
       const dates = await ManagedAttendance.find({ key }).sort({ date: -1 }).lean();
       return NextResponse.json({ success: true, item, attendance: dates });

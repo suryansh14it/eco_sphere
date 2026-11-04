@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import connectDB from '@/lib/mongodb';
 import Project from '@/models/Project';
 import ProjectMember from '@/models/ProjectMember';
+import NGOLocalInitiative from '@/models/NgoFundRequest';
 import { requireUser, requireRole } from '@/lib/session';
 import ManagedProject from '@/models/ManagedProject';
 import {
@@ -93,12 +94,31 @@ export async function GET(
         }
       : null;
 
+    // Government funding trail for this project, from its fund request
+    // (payment released through the Razorpay checkout). Shown to everyone on
+    // the project page so the backing behind the work is visible.
+    const fundedRequest = (await NGOLocalInitiative.findOne({
+      projectId: id,
+      paymentStatus: 'completed',
+    })
+      .sort({ fundedAt: -1 })
+      .lean()) as any;
+    const funding = fundedRequest
+      ? {
+          paid: true,
+          amount: fundedRequest.approvedFunding || fundedRequest.projectFunding || '',
+          paidAt: fundedRequest.fundedAt || null,
+          paymentRef: fundedRequest.paymentRef || '',
+        }
+      : null;
+
     return NextResponse.json({
       success: true,
       project: finalProject,
       isOwner,
       myMembership,
       management,
+      funding,
     });
   } catch (error: any) {
     console.error('Error fetching project:', error);

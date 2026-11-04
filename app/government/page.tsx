@@ -247,6 +247,9 @@ export default function GovernmentDashboard() {
     () => fundedRequests.filter((r) => r.project && r.project.status !== "completed"),
     [fundedRequests]
   );
+  // Ongoing count = paid NGO projects still running + the government's own
+  // created projects that are live in their workspaces.
+  const ongoingCount = ongoingFunded.length + govManagedLive.length;
   const totalVolunteers = useMemo(
     () => ngos.reduce((sum, n) => sum + (n.totals?.volunteers || 0), 0),
     [ngos]
@@ -430,13 +433,20 @@ export default function GovernmentDashboard() {
             </Button>
             <Button
               variant={activeSection === "ongoing" ? "default" : "ghost"}
-              className={`w-full ${
+              className={`w-full justify-between ${
                 activeSection === "ongoing" ? "bg-sky-600 text-white hover:bg-sky-700" : "hover:bg-sky-50"
               }`}
               onClick={() => setActiveSection("ongoing")}
             >
-              <Clock className="mr-3 h-4 w-4" />
-              Ongoing Projects
+              <span className="flex items-center">
+                <Clock className="mr-3 h-4 w-4" />
+                Ongoing
+              </span>
+              {ongoingCount > 0 && (
+                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">
+                  {ongoingCount}
+                </span>
+              )}
             </Button>
             <Button
               variant={activeSection === "completed" ? "default" : "ghost"}
@@ -455,34 +465,30 @@ export default function GovernmentDashboard() {
                 </span>
               )}
             </Button>
-            <div className="pt-2">
-              <Button
-                variant={activeSection === "gov-projects" ? "default" : "ghost"}
-                className={`w-full justify-start ${
-                  activeSection === "gov-projects"
-                    ? "bg-sky-600 text-white hover:bg-sky-700"
-                    : "hover:bg-sky-50"
-                }`}
-                onClick={() => setActiveSection("gov-projects")}
-              >
-                <Landmark className="mr-3 h-4 w-4" />
-                Government Projects
-              </Button>
-            </div>
-            <div className="pt-2">
-              <Button
-                variant={activeSection === "create-project" ? "default" : "ghost"}
-                className={`w-full justify-start ${
-                  activeSection === "create-project"
-                    ? "bg-sky-600 text-white hover:bg-sky-700"
-                    : "hover:bg-sky-50"
-                }`}
-                onClick={() => setActiveSection("create-project")}
-              >
-                <Plus className="mr-3 h-4 w-4" />
-                Create Project
-              </Button>
-            </div>
+            <Button
+              variant={activeSection === "gov-projects" ? "default" : "ghost"}
+              className={`w-full justify-start ${
+                activeSection === "gov-projects"
+                  ? "bg-sky-600 text-white hover:bg-sky-700"
+                  : "hover:bg-sky-50"
+              }`}
+              onClick={() => setActiveSection("gov-projects")}
+            >
+              <Landmark className="mr-3 h-4 w-4" />
+              Government Projects
+            </Button>
+            <Button
+              variant={activeSection === "create-project" ? "default" : "ghost"}
+              className={`w-full justify-start ${
+                activeSection === "create-project"
+                  ? "bg-sky-600 text-white hover:bg-sky-700"
+                  : "hover:bg-sky-50"
+              }`}
+              onClick={() => setActiveSection("create-project")}
+            >
+              <Plus className="mr-3 h-4 w-4" />
+              Create Project
+            </Button>
           </nav>
         </aside>
 
@@ -901,58 +907,117 @@ export default function GovernmentDashboard() {
               <div>
                 <h2 className="font-serif text-2xl font-bold text-sky-950">Ongoing Projects</h2>
                 <p className="text-sm text-muted-foreground">
-                  Approved, paid NGO projects that are still running, with the progress the NGOs
-                  report from their workspaces.
+                  Paid NGO projects and the government's own projects that are still running, with
+                  the progress reported from the management workspaces.
                 </p>
               </div>
               {dataLoading ? (
                 <div className="flex justify-center py-16">
                   <Loader2 className="h-7 w-7 animate-spin text-sky-500" />
                 </div>
-              ) : ongoingFunded.length === 0 ? (
+              ) : ongoingFunded.length === 0 && govManagedLive.length === 0 ? (
                 <Card>
                   <CardContent className="py-14 text-center">
                     <Clock className="mx-auto mb-3 h-10 w-10 text-sky-200" />
                     <p className="font-medium">No ongoing projects</p>
                     <p className="text-sm text-muted-foreground">
-                      Paid projects still in execution will show their progress here.
+                      Paid projects still in execution — NGO-funded or government-own — show their
+                      progress here.
                     </p>
                   </CardContent>
                 </Card>
               ) : (
-                [...ongoingFunded].map((r) => (
-                  <Card key={r._id} className="border-sky-100">
-                    <CardContent className="p-5">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="mb-1 flex flex-wrap items-center gap-2">
-                            <h3 className="font-semibold text-sky-950">{r.title}</h3>
-                            <Badge variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-700">
-                              In progress
-                            </Badge>
+                <div className="space-y-4">
+                  {ongoingFunded.map((r) => (
+                    <Card key={`req-${r._id}`} className="border-sky-100">
+                      <CardContent className="p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="mb-1 flex flex-wrap items-center gap-2">
+                              <h3 className="font-semibold text-sky-950">{r.title}</h3>
+                              <Badge variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-700">
+                                In progress
+                              </Badge>
+                              <Badge variant="outline" className="bg-green-50 border-green-200 text-green-700">
+                                <HandCoins className="mr-1 h-3 w-3" />
+                                Paid via Razorpay
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {r.ngoName} · payment {r.approvedFunding || r.projectFunding}
+                            </p>
                           </div>
-                          <p className="text-sm text-muted-foreground">
-                            {r.ngoName} · approved funding {r.approvedFunding || r.projectFunding}
-                          </p>
+                          <Button size="sm" variant="outline" className="bg-transparent" onClick={() => setDetailRequest(r)}>
+                            View Details
+                          </Button>
                         </div>
-                        <Button size="sm" variant="outline" className="bg-transparent" onClick={() => setDetailRequest(r)}>
-                          View Details
-                        </Button>
-                      </div>
-                      <div className="mt-3 flex items-center gap-3">
-                        <div className="flex-1 rounded-full bg-sky-100">
-                          <div
-                            className="h-3 rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 transition-all"
-                            style={{ width: `${r.project?.progress ?? 0}%` }}
-                          />
+                        <div className="mt-3 flex items-center gap-3">
+                          <div className="flex-1 rounded-full bg-sky-100">
+                            <div
+                              className="h-3 rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 transition-all"
+                              style={{ width: `${r.project?.progress ?? 0}%` }}
+                            />
+                          </div>
+                          <span className="w-12 text-right text-sm font-semibold text-sky-700">
+                            {r.project?.progress ?? 0}%
+                          </span>
                         </div>
-                        <span className="w-12 text-right text-sm font-semibold text-sky-700">
-                          {r.project?.progress ?? 0}%
-                        </span>
+                      </CardContent>
+                    </Card>
+                  ))}
+
+                  {govManagedLive.length > 0 && (
+                    <>
+                      <h3 className="pt-2 font-serif text-lg font-semibold text-sky-900">
+                        Government-run projects
+                      </h3>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {govManagedLive.map((p) => (
+                          <Card key={p.key} className="border-sky-100">
+                            <CardContent className="p-5">
+                              <div className="mb-1 flex flex-wrap items-center gap-2">
+                                <h3 className="font-semibold text-sky-950">{p.title}</h3>
+                                <Badge variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-700">
+                                  In progress
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                <MapPin className="mr-1 inline h-3 w-3" />
+                                {p.location}
+                              </p>
+                              <div className="mt-3 flex items-center gap-3">
+                                <div className="flex-1 rounded-full bg-sky-100">
+                                  <div
+                                    className="h-3 rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 transition-all"
+                                    style={{ width: `${p.progress}%` }}
+                                  />
+                                </div>
+                                <span className="w-12 text-right text-sm font-semibold text-sky-700">
+                                  {p.progress}%
+                                </span>
+                              </div>
+                              <p className="mt-3 text-xs text-muted-foreground">
+                                {p.memberCount} participant{p.memberCount === 1 ? "" : "s"} · {p.media?.length || 0} media
+                              </p>
+                              <div className="mt-3 flex gap-2">
+                                <Link href={`/government/project-management/${p.key}`} className="flex-1">
+                                  <Button size="sm" className="w-full bg-sky-600 hover:bg-sky-700 text-white">
+                                    Manage
+                                  </Button>
+                                </Link>
+                                <Link href={p.href} className="flex-1">
+                                  <Button variant="outline" size="sm" className="w-full bg-transparent">
+                                    View public page
+                                  </Button>
+                                </Link>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
-                    </CardContent>
-                  </Card>
-                ))
+                    </>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -963,8 +1028,8 @@ export default function GovernmentDashboard() {
               <div>
                 <h2 className="font-serif text-2xl font-bold text-sky-950">Completed Projects</h2>
                 <p className="text-sm text-muted-foreground">
-                  NGO projects that finished, with the photos, videos, summary and participant list
-                  recorded by the NGO.
+                  NGO-run and government-run projects that finished, with the photos, videos,
+                  summary and participant list recorded in the management workspace.
                 </p>
               </div>
               {dataLoading ? (
@@ -977,7 +1042,8 @@ export default function GovernmentDashboard() {
                     <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-green-200" />
                     <p className="font-medium">No completed projects yet</p>
                     <p className="text-sm text-muted-foreground">
-                      When an NGO marks a project completed, it appears here with its evidence.
+                      When a project is marked completed from its workspace — by the NGO or by the
+                      government — it appears here with its evidence.
                     </p>
                   </CardContent>
                 </Card>
@@ -1001,6 +1067,11 @@ export default function GovernmentDashboard() {
                         <div className="mb-1 flex flex-wrap items-center gap-2">
                           <h3 className="font-semibold text-sky-950">{c.title}</h3>
                           <Badge className="bg-green-100 text-green-800 border-green-300">Completed</Badge>
+                          {c.source === "government" && (
+                            <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200">
+                              Government project
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground">{c.organisation}</p>
                         {c.completedSummary && (
@@ -1520,8 +1591,8 @@ export default function GovernmentDashboard() {
                       UPI ID: {detailRequest.upiId || "the NGO's registered UPI ID"}
                     </span>
                     <span className="text-emerald-700">
-                      Paying {detailRequest.approvedFunding || detailRequest.projectFunding} via the
-                      Razorpay demo gateway — the QR pays into the NGO's UPI ID.
+                      Paying {detailRequest.approvedFunding || detailRequest.projectFunding} through
+                      the Razorpay gateway — the QR pays into the NGO's UPI ID.
                     </span>
                   </div>
                   <Button
@@ -1539,11 +1610,11 @@ export default function GovernmentDashboard() {
                     {formatRupees(
                       parseRupees(detailRequest.approvedFunding || detailRequest.projectFunding || "₹0")
                     )}{" "}
-                    with Razorpay (demo)
+                    with Razorpay
                   </Button>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    The demo gateway always succeeds. Once the payment completes, the project moves
-                    to Approved Projects and the NGO is notified.
+                    Once the payment completes, the project moves to Approved Projects and the NGO is
+                    notified of the payment.
                   </p>
                 </div>
               )}
@@ -1639,7 +1710,7 @@ export default function GovernmentDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* ================= Razorpay demo payment ================= */}
+      {/* ================= Razorpay payment ================= */}
       <RazorpayCheckout
         open={payModalRequest !== null}
         onOpenChange={(open) => !open && setPayModalRequest(null)}

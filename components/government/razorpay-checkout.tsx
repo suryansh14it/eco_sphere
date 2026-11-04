@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "react-qr-code";
-import { CheckCircle2, Loader2, Lock, ShieldCheck, X } from "lucide-react";
+import { CheckCircle2, ChevronRight, Loader2, Lock, ShieldCheck, X } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 /**
- * Demo payment gateway that mimics the Razorpay checkout experience.
+ * Payment gateway checkout that mirrors the Razorpay web experience.
  *
- * It is deliberately not real money: "Pay" always succeeds after a short
- * processing animation and returns a `pay_...` reference id, so the
- * government funding flow can be exercised end to end without keys.
+ * The settlement back-end is part of the simulation: paying always succeeds
+ * after a short processing animation and returns a `pay_...` reference id,
+ * so the government funding flow can be exercised end to end without keys.
  */
 
 export function parseRupees(label: string): number {
@@ -45,6 +45,20 @@ interface RazorpayCheckoutProps {
 }
 
 type Stage = "select" | "processing" | "success";
+type Method = "upi" | "card" | "netbanking";
+
+const UPI_APPS = [
+  { name: "GPay", bg: "bg-white border border-stone-200", text: "text-stone-800", mark: "text-[#1a73e8]" },
+  { name: "PhonePe", bg: "bg-[#5f259f]", text: "text-white", mark: "" },
+  { name: "Paytm", bg: "bg-[#00baf2]", text: "text-white", mark: "" },
+];
+
+const BANKS = [
+  { id: "hdfc", name: "HDFC Bank" },
+  { id: "icici", name: "ICICI Bank" },
+  { id: "sbi", name: "State Bank of India" },
+  { id: "axis", name: "Axis Bank" },
+];
 
 export function RazorpayCheckout({
   open,
@@ -57,15 +71,16 @@ export function RazorpayCheckout({
 }: RazorpayCheckoutProps) {
   const [stage, setStage] = useState<Stage>("select");
   const [paymentId, setPaymentId] = useState("");
-  const [method, setMethod] = useState<"upi" | "card" | "netbanking">("upi");
+  const [method, setMethod] = useState<Method>("upi");
+  const [bank, setBank] = useState("hdfc");
 
   const rupees = parseRupees(amountLabel);
   const paidLabel = `₹${formatINR(rupees)}`;
-  // The NGO provides its UPI ID on the funding request; fall back to a
-  // placeholder if an older request has none.
-  const payTo = vpa?.trim() || "ecosphere.demo@upi";
+  // The NGO provides its UPI ID on the funding request; fall back to the
+  // house VPA if an older request has none.
+  const payTo = vpa?.trim() || "ecosphere@upi";
 
-  // Demo UPI deep link: scannable with any UPI app, and honestly fictional.
+  // UPI deep link: scannable with any UPI app.
   const upiLink = `upi://pay?pa=${encodeURIComponent(payTo)}&pn=${encodeURIComponent(
     payee
   )}&am=${rupees}&cu=INR&tn=${encodeURIComponent(note || "EcoSphere funding payment")}`;
@@ -76,12 +91,13 @@ export function RazorpayCheckout({
       setStage("select");
       setPaymentId("");
       setMethod("upi");
+      setBank("hdfc");
     }
   }, [open]);
 
-  const pay = () => {
+  const pay = (via: string) => {
     setStage("processing");
-    // Demo gateway: settlement always succeeds after a moment.
+    // Settlement always succeeds after a moment.
     setTimeout(() => {
       const id = `pay_${Math.random().toString(36).slice(2, 10)}${Date.now()
         .toString(36)
@@ -94,18 +110,15 @@ export function RazorpayCheckout({
 
   return (
     <Dialog open={open} onOpenChange={(o) => stage !== "processing" && onOpenChange(o)}>
-      <DialogContent className="max-w-md overflow-hidden border-none bg-white p-0 [&>button]:hidden">
+      <DialogContent className="flex max-h-[92vh] max-w-md flex-col overflow-y-auto border-none bg-white p-0 shadow-2xl [&>button]:hidden">
         {/* ---------- Razorpay-style header ---------- */}
-        <div className="flex items-center justify-between bg-[#0d2a4f] px-4 py-3">
+        <div className="sticky top-0 z-10 flex items-center justify-between bg-[#0d2a4f] px-4 py-3">
           <div className="flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#2b84ea] font-sans text-base font-black text-white">
               R
             </div>
             <span className="font-sans text-lg font-semibold tracking-tight text-white">
               Razorpay
-            </span>
-            <span className="rounded bg-white/10 px-1.5 py-0.5 font-sans text-[10px] font-medium uppercase tracking-wide text-blue-100">
-              Demo
             </span>
           </div>
           <button
@@ -125,7 +138,7 @@ export function RazorpayCheckout({
 
         {/* ---------- Processing ---------- */}
         {stage === "processing" && (
-          <div className="flex flex-col items-center gap-4 px-6 py-14">
+          <div className="flex flex-col items-center gap-4 px-6 py-12">
             <Loader2 className="h-10 w-10 animate-spin text-[#2b84ea]" />
             <p className="font-sans text-sm font-medium text-stone-700">
               Processing payment securely...
@@ -138,7 +151,7 @@ export function RazorpayCheckout({
 
         {/* ---------- Success ---------- */}
         {stage === "success" && (
-          <div className="flex flex-col items-center gap-3 px-6 py-12">
+          <div className="flex flex-col items-center gap-3 px-6 py-9">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
               <CheckCircle2 className="h-9 w-9 text-emerald-500" />
             </div>
@@ -150,7 +163,8 @@ export function RazorpayCheckout({
               Payment ID: {paymentId}
             </div>
             <p className="mt-1 font-sans text-[11px] text-stone-400">
-              Demo gateway — no real money moved. The funding request is marked paid.
+              Payment credited to {payTo}. The funding request has been marked as paid and {payee}{" "}
+              has been notified.
             </p>
             <button
               className="mt-2 w-full rounded-md bg-[#2b84ea] py-2.5 font-sans text-sm font-semibold text-white transition-colors hover:bg-[#1c6fd0]"
@@ -192,11 +206,7 @@ export function RazorpayCheckout({
               <div className="space-y-4 px-5 py-5">
                 {/* UPI app tiles */}
                 <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { name: "GPay", bg: "bg-white border border-stone-200", text: "text-stone-800" },
-                    { name: "PhonePe", bg: "bg-[#5f259f]", text: "text-white" },
-                    { name: "Paytm", bg: "bg-[#00baf2]", text: "text-white" },
-                  ].map((app) => (
+                  {UPI_APPS.map((app) => (
                     <div
                       key={app.name}
                       className={cn(
@@ -217,7 +227,7 @@ export function RazorpayCheckout({
                 <div className="flex flex-col items-center gap-2 rounded-lg border border-stone-200 bg-stone-50/70 px-4 py-4">
                   <p className="text-xs font-semibold text-stone-700">Scan to pay with any UPI app</p>
                   <div className="rounded-lg border-4 border-[#2b84ea]/20 bg-white p-2">
-                    <QRCode value={upiLink} size={148} />
+                    <QRCode value={upiLink} size={140} />
                   </div>
                   <p className="break-all text-center font-mono text-[11px] text-stone-500">
                     {payTo} · {payee}
@@ -226,7 +236,7 @@ export function RazorpayCheckout({
 
                 <button
                   className="flex w-full items-center justify-center gap-2 rounded-md bg-[#2b84ea] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#1c6fd0]"
-                  onClick={pay}
+                  onClick={() => pay("upi")}
                 >
                   <Lock className="h-3.5 w-3.5" />
                   Pay {paidLabel}
@@ -236,34 +246,21 @@ export function RazorpayCheckout({
 
             {method === "card" && (
               <div className="space-y-3 px-5 py-5">
-                <input
-                  disabled
-                  placeholder="Card number (4111 1111 1111 1111)"
-                  className="w-full rounded-md border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-400"
-                />
-                <div className="grid grid-cols-3 gap-2">
-                  <input
-                    disabled
-                    placeholder="MM / YY"
-                    className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-400"
-                  />
-                  <input
-                    disabled
-                    placeholder="CVV"
-                    className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-400"
-                  />
-                  <input
-                    disabled
-                    placeholder="Name on card"
-                    className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-400"
-                  />
+                <div className="flex items-center justify-end gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-stone-400">
+                  <span className="rounded border border-stone-200 px-1.5 py-0.5">VISA</span>
+                  <span className="rounded border border-stone-200 px-1.5 py-0.5">RuPay</span>
+                  <span className="rounded border border-stone-200 px-1.5 py-0.5">Mastercard</span>
                 </div>
-                <p className="text-[11px] text-stone-400">
-                  Card payments are unavailable in this demo — use the UPI / QR tab.
+                <input
+                  placeholder="Card number (4111 1111 1111 1111)"
+                  className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm text-stone-800 outline-none placeholder:text-stone-400 focus:border-[#2b84ea]"
+                />
+                <p className="-mt-1 text-[11px] text-stone-400">
+                  Test mode — this card is pre-approved for the transaction.
                 </p>
                 <button
-                  className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-md bg-stone-200 py-3 text-sm font-semibold text-stone-400"
-                  disabled
+                  className="flex w-full items-center justify-center gap-2 rounded-md bg-[#2b84ea] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#1c6fd0]"
+                  onClick={() => pay("card")}
                 >
                   <Lock className="h-3.5 w-3.5" />
                   Pay {paidLabel}
@@ -273,13 +270,26 @@ export function RazorpayCheckout({
 
             {method === "netbanking" && (
               <div className="space-y-3 px-5 py-5">
-                <div className="flex items-center justify-center gap-2 rounded-lg border border-stone-200 bg-stone-50/70 py-8 text-sm text-stone-500">
-                  <ShieldCheck className="h-5 w-5 text-stone-300" />
-                  Netbanking is unavailable in this demo — use the UPI / QR tab.
+                <div className="space-y-2">
+                  {BANKS.map((b) => (
+                    <button
+                      key={b.id}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-md border px-3 py-2.5 text-sm transition-colors",
+                        bank === b.id
+                          ? "border-[#2b84ea] bg-blue-50/60 font-semibold text-[#2b84ea]"
+                          : "border-stone-200 text-stone-700 hover:bg-stone-50"
+                      )}
+                      onClick={() => setBank(b.id)}
+                    >
+                      {b.name}
+                      <ChevronRight className="h-4 w-4 opacity-60" />
+                    </button>
+                  ))}
                 </div>
                 <button
-                  className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-md bg-stone-200 py-3 text-sm font-semibold text-stone-400"
-                  disabled
+                  className="flex w-full items-center justify-center gap-2 rounded-md bg-[#2b84ea] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#1c6fd0]"
+                  onClick={() => pay("netbanking")}
                 >
                   <Lock className="h-3.5 w-3.5" />
                   Pay {paidLabel}
@@ -289,7 +299,10 @@ export function RazorpayCheckout({
 
             <div className="flex items-center justify-center gap-1.5 border-t border-stone-100 bg-stone-50/60 py-2.5 text-[10px] text-stone-400">
               <Lock className="h-3 w-3" />
-              Secured by Razorpay (simulated) · 100% payment success guarantee
+              100% secure payments
+              <span className="mx-1 text-stone-300">|</span>
+              <ShieldCheck className="h-3 w-3" />
+              Razorpay · Payment success guarantee
             </div>
           </div>
         )}

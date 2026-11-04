@@ -7,9 +7,11 @@ import { requireRole } from '@/lib/session';
 
 /**
  * Completed volunteer projects for the government dashboard.
- * Everything an NGO finished (via its management workspace or by closing the
- * project), including the photos/videos, completion summary and the
- * participant roster that the NGO recorded.
+ * Both NGOs and the government itself can run volunteer projects, and both
+ * finish them from the shared management workspace — so completed means
+ * "status completed on the project" regardless of who owns it. The workspace
+ * overlay (when present) adds the photos/videos, completion summary and
+ * attendance the manager recorded.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -18,8 +20,6 @@ export async function GET(req: NextRequest) {
     const auth = await requireRole(req, ['government']);
     if (!auth.user) return auth.response;
 
-    // Completed = workspace was marked complete, or the project itself was
-    // closed. Both paths archive the project.
     const overlayDocs = (await ManagedProject.find({
       kind: 'volunteer',
       completedAt: { $ne: null },
@@ -28,58 +28,70 @@ export async function GET(req: NextRequest) {
       .limit(200)
       .lean()) as any[];
 
-    const overlayByRef = new Map(overlayDocs.map((o) => [o.refId, o]));
-    let items: any[] = [];
+    const overlayByRef = new Map(overlayDocs.map((o) => [String(o.refId), o]));
+    const overlayIds = overlayDocs
+      .map((o) => o.refId)
+      .filter((id) => /^[0-9a-fA-F]{24}$/.test(id));
 
-    const explicitIds = overlayDocs.map((o) => o.refId).filter((id) => /^[0-9a-fA-F]{24}$/.test(id));
-    if (explicitIds.length) {
-      const projects = (await Project.find({
-        _id: { $in: explicitIds },
-        source: 'ngo',
-      })
-        .select('title description category ngo location source createdAt')
-        .lean()) as any[];
-      const memberSets = await ProjectMember.find({
-        projectId: { $in: explicitIds },
-        status: 'joined',
-      })
-        .select('projectId user roleId')
-        .lean();
+    // Projects the workspaces marked complete, plus any project closed
+    // outside a workspace, for both owners (ngo + government).
+    const projects = (await Project.find({
+      _id: { $in: overlayIds },
+      status: 'completed',
+    })
+      .select('title description category ngo location source createdAt')
+      .lean()) as any[];
 
-      items = projects.map((p) => {
-        const overlay = overlayByRef.get(String(p._id));
-        const memberMap = new Map<string, any>();
-        for (const m of memberSets.filter((m) => String(m.projectId) === String(p._id))) {
-          memberMap.set(String(m.user.id), m.user);
-        }
-        const members = Array.from(memberMap.values()).filter(
-          (u: any) => !(overlay?.removedUserIds || []).includes(String(u.id))
-        );
-        return {
-          id: String(p._id),
-          key: `volunteer-${String(p._id)}`,
-          title: p.title,
-          description: p.description,
-          category: p.category,
-          organisation: p.ngo?.name || 'NGO',
-          location: [p.location?.address, p.location?.district, p.location?.state]
-            .filter(Boolean)
-            .join(', '),
-          completedAt: overlay?.completedAt || null,
-          completedSummary: overlay?.completedSummary || '',
-          progress: overlay?.progress ?? 100,
-          media: overlay?.media || [],
-          documents: overlay?.documents || [],
-          notices: overlay?.notices || [],
-          participants: members.map((u: any) => ({
-            id: String(u.id),
-            name: u.name,
-            email: u.email,
-          })),
-          attendanceDates: [],
-        };
-      });
-    }
+    const memberRows = overlayIds.length
+      ? ((await ProjectMember.find({
+          projectId: { $in: overlayIds },
+          status: 'joined',
+        })
+          .select('projectId user')
+          .lean()) as any[])
+      : [];
+
+    const items = projects.map((p) => {
+      const overlay = overlayByRef.get(String(p._id));
+      const memberMap = new Map<string, any>();
+      for (const m of memberRows.filter((m) => String(m.projectId) === String(p._id))) {
+        memberMap.set(String(m.user.id), m.user);
+      }
+      const members = Array.from(memberMap.values()).filter(
+        (u: any) => !(overlay?.removedUserIds || []).includes(String(u.id))
+      );
+      return {
+        id: String(p._id),
+        key: `volunteer-${String(p._id)}`,
+        title: p.title,
+        description: p.description,
+        category: p.category,
+        source: p.source || 'ngo',
+        organisation: p.ngo?.name || 'NGO',
+        location: [p.location?.address, p.location?.district, p.location?.state]
+          .filter(Boolean)
+          .join(', '),
+        completedAt: overlay?.completedAt || null,
+        completedSummary: overlay?.completedSummary || '',
+        progress: overlay?.progress ?? 100,
+        media: overlay?.media || [],
+        documents: overlay?.documents || [],
+        notices: overlay?.notices || [],
+        participants: members.map((u: any) => ({
+          id: String(u.id),
+          name: u.name,
+          email: u.email,
+        })),
+        attendanceDates: [],
+      };
+    });
+
+    // Sort by completion date, newest first.
+    items.sort((a, b) => {
+      const ta = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+      const tb = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+      return tb - ta;
+    });
 
     // Attendance date counts per completed item (for the detail view).
     const keys = items.map((i) => i.key);

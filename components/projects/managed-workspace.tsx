@@ -10,6 +10,7 @@ import {
   CalendarDays,
   CheckCircle2,
   FileText,
+  HandCoins,
   Image as ImageIcon,
   Link as LinkIcon,
   Loader2,
@@ -291,6 +292,19 @@ export function ManagedWorkspace({ role }: { role: WorkspaceRole }) {
                     <Badge className={t.liveBadge}>Live</Badge>
                   )}
                 </div>
+                {item.funding?.paid && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm">
+                    <HandCoins className="h-4 w-4 text-green-700" />
+                    <span className="font-semibold text-green-900">
+                      Government payment received{item.funding.amount ? ` (${item.funding.amount})` : ""} via Razorpay
+                    </span>
+                    {item.funding.paidAt && (
+                      <span className="text-xs text-green-700">
+                        · {dateLabel(item.funding.paidAt)}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5" />

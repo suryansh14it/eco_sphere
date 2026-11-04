@@ -9,6 +9,7 @@ import {
   Bell,
   Calendar,
   CheckCircle2,
+  HandCoins,
   HandHeart,
   Loader2,
   MapPin,
@@ -64,6 +65,13 @@ export default function ProjectDetailPage() {
     roleId: string;
     joinedAt: string;
   } | null>(null);
+  // Government funding trail (set once the government pays via Razorpay).
+  const [funding, setFunding] = useState<{
+    paid: boolean;
+    amount: string;
+    paidAt?: string | null;
+    paymentRef?: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -80,6 +88,7 @@ export default function ProjectDetailPage() {
       setIsOwner(Boolean(data.isOwner));
       setMyMembership(data.myMembership || null);
       setManagement(data.management || null);
+      setFunding(data.funding || null);
       // Full roster rides on the project payload for the owning NGO.
       setMembers(data.isOwner ? (data.project?.members || []) : []);
       setError("");
@@ -204,6 +213,20 @@ export default function ProjectDetailPage() {
             </div>
 
             <h1 className="mt-3 font-serif text-3xl font-bold text-emerald-950">{project.title}</h1>
+
+            {funding?.paid && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm">
+                <HandCoins className="h-4 w-4 text-green-700" />
+                <span className="font-semibold text-green-900">
+                  Government funding paid{funding.amount ? ` (${funding.amount})` : ""} via Razorpay
+                </span>
+                {funding.paidAt && (
+                  <span className="text-xs text-green-700">
+                    · {new Date(funding.paidAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                  </span>
+                )}
+              </div>
+            )}
 
             <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-stone-500">
               <span className="flex items-center gap-1">

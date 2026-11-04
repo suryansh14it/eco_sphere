@@ -43,6 +43,8 @@ export interface ManagedItem {
   media: IManagedProject['media'];
   documents: IManagedProject['documents'];
   notices: IManagedProject['notices'];
+  /** Government funding trail — set once the payment is released. */
+  funding?: { paid: boolean; amount: string; paidAt: string | Date | null };
   members: ManagedMember[];
   memberCount: number;
 }
