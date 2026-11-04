@@ -40,8 +40,13 @@ export async function GET(
 
     const auth = await requireUser(req);
     const authUser = auth.user;
+    // Owner = the NGO that started the project, or the government official
+    // who created it (its id is stored in ngo.id). Owners get the roster and
+    // never see join buttons for their own project.
     const isOwner = Boolean(
-      authUser && authUser.role === 'ngo' && serialized.ngo.id === String(authUser._id)
+      authUser &&
+        (authUser.role === 'ngo' || authUser.role === 'government') &&
+        serialized.ngo.id === String(authUser._id)
     );
 
     let myMembership: { id: string; joinStatus: 'joined' | 'removed'; roleId: string; joinedAt: string } | null = null;

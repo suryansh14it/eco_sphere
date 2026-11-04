@@ -10,6 +10,7 @@ import {
   Clock,
   Droplets,
   Factory,
+  HandCoins,
   HandHeart,
   Loader2,
   MapPin,
@@ -158,6 +159,43 @@ export function ProjectFeed({ mode = "public" }: ProjectFeedProps) {
   useEffect(() => {
     loadProjects();
   }, [loadProjects]);
+
+  // In the NGO's own feed, tag projects whose government funding has been
+  // paid so the organisation can see "payment received" straight on them.
+  const [fundingByProject, setFundingByProject] = useState<
+    Record<string, { status: string; amount: string; fundedAt?: string }>
+  >({});
+
+  useEffect(() => {
+    if (!mineOnly || !user || user.role !== "ngo") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/ngo/local-initiative?ngoId=${user.id}`, {
+          credentials: "include",
+        });
+        const data = await res.json();
+        if (!cancelled && data.success) {
+          const map: Record<string, { status: string; amount: string; fundedAt?: string }> = {};
+          for (const r of data.initiatives || []) {
+            if (r.projectId && (!map[r.projectId] || r.status === "funded")) {
+              map[r.projectId] = {
+                status: r.status,
+                amount: r.approvedFunding || r.projectFunding || "",
+                fundedAt: r.fundedAt,
+              };
+            }
+          }
+          setFundingByProject(map);
+        }
+      } catch (e) {
+        console.error("Error loading funding status:", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mineOnly, user]);
 
   const sorted = useMemo(() => {
     const items = [...projects];
@@ -336,6 +374,19 @@ export function ProjectFeed({ mode = "public" }: ProjectFeedProps) {
                         ))}
                       </div>
                     ) : null}
+
+                    {mineOnly && fundingByProject[project.id]?.status === "funded" && (
+                      <div className="flex items-center gap-1.5 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-xs font-semibold text-green-800">
+                        <HandCoins className="h-3.5 w-3.5" />
+                        Government payment received{" "}
+                        {fundingByProject[project.id].amount
+                          ? `(${fundingByProject[project.id].amount})`
+                          : ""}
+                        {fundingByProject[project.id].fundedAt
+                          ? ` · ${new Date(fundingByProject[project.id].fundedAt!).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
+                          : ""}
+                      </div>
+                    )}
 
                     {mode === "mine" && (project.members?.length || 0) > 0 && (
                       <div className="rounded-lg border border-purple-100 bg-purple-50/50 p-3">

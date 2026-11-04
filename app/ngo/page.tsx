@@ -127,6 +127,56 @@ export default function NGODashboard() {
     loadManaged();
   }, [user, loading, loadManaged]);
 
+  // Government payment notifications: load this NGO's funding requests,
+  // announce any payment that has not been acknowledged yet, then mark it
+  // seen so it doesn't announce on every visit (a persistent "Payment
+  // received" badge stays on the project card in Volunteer Projects).
+  const [fundingRequests, setFundingRequests] = useState<any[]>([]);
+  const loadFunding = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/ngo/local-initiative?ngoId=${user.id}`, { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) setFundingRequests(data.initiatives || []);
+    } catch (error) {
+      console.error('Error loading funding requests:', error);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (loading || user?.role !== 'ngo') return;
+    loadFunding();
+  }, [user, loading, loadFunding]);
+
+  useEffect(() => {
+    if (user?.role !== 'ngo') return;
+    const unseen = fundingRequests.filter(
+      (r) => r.status === 'funded' && !r.ngoSeenPaymentAt
+    );
+    if (unseen.length === 0) return;
+    unseen.forEach((r) => {
+      toast({
+        title: '💰 Payment received from the government',
+        description: `The government released ${r.approvedFunding || r.projectFunding} for "${r.title}". The payment now shows on the project card in Volunteer Projects.`,
+        duration: 8000,
+      });
+      fetch('/api/ngo/local-initiative', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id: r._id }),
+      }).catch(() => undefined);
+    });
+    // Optimistically mark seen so the toast doesn't repeat on re-render.
+    setFundingRequests((prev) =>
+      prev.map((r) =>
+        r._id && unseen.some((u) => u._id === r._id)
+          ? { ...r, ngoSeenPaymentAt: new Date().toISOString() }
+          : r
+      )
+    );
+  }, [fundingRequests, user]);
+
   // Show loading only while auth provider is loading
   if (loading) {
     return (
@@ -524,6 +574,7 @@ export default function NGODashboard() {
                     ngoName: user?.organizationName || user?.name || user?.email || '',
                     ngoEmail: user?.email || '',
                     ngoCommission: formData.get('ngoCommission'),
+                    upiId: formData.get('upiId'),
 
                     // Government submission details (department is a Radix
                     // Select - read from controlled state, not FormData)
@@ -765,6 +816,24 @@ export default function NGODashboard() {
                         />
                         <p className="text-xs text-muted-foreground mt-1">Maximum 20% commission allowed</p>
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">
+                        Organisation UPI ID <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        name="upiId"
+                        placeholder="e.g., yourtrust@upi"
+                        className="glass border-border/30"
+                        pattern="^[\w.\-]{2,}@[a-zA-Z]{2,}$"
+                        title="UPI ID format: name@bank (e.g. yourtrust@upi)"
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Where the government sends the money. This UPI ID is shown on the payment
+                        screen the government scans/pays to.
+                      </p>
                     </div>
 
                     <div>

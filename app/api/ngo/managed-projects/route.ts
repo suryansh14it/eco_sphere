@@ -16,8 +16,11 @@ import {
 } from '@/lib/managed-projects';
 import ManagedProject, { ManagedAttendance } from '@/models/ManagedProject';
 
-async function authedNgo(req: NextRequest) {
-  const auth = await requireRole(req, ['ngo']);
+async function authedManager(req: NextRequest) {
+  // NGOs manage their volunteer projects and adopted issues; government
+  // officials manage the projects they created (stored with their id in
+  // ngo.id), using the same workspaces.
+  const auth = await requireRole(req, ['ngo', 'government']);
   return auth.user ? auth : null;
 }
 
@@ -30,8 +33,8 @@ async function authedNgo(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const auth = await authedNgo(req);
-    if (!auth) return NextResponse.json({ success: false, message: 'NGO sign-in required.' }, { status: 401 });
+    const auth = await authedManager(req);
+    if (!auth) return NextResponse.json({ success: false, message: 'Sign-in required.' }, { status: 401 });
     const ngoId = String(auth.user!._id);
 
     const { searchParams } = new URL(req.url);
@@ -69,8 +72,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authedNgo(req);
-    if (!auth) return NextResponse.json({ success: false, message: 'NGO sign-in required.' }, { status: 401 });
+    const auth = await authedManager(req);
+    if (!auth) return NextResponse.json({ success: false, message: 'Sign-in required.' }, { status: 401 });
     const ngoId = String(auth.user!._id);
 
     const body = await req.json().catch(() => ({}));
@@ -242,7 +245,7 @@ export async function POST(req: NextRequest) {
           });
           if (member) {
             member.status = 'removed';
-            member.removedBy = 'ngo';
+            member.removedBy = auth.user!.role;
             await member.save();
           }
         }

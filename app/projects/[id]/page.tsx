@@ -377,7 +377,13 @@ export default function ProjectDetailPage() {
                     </p>
                   )}
                   {isOwner && (
-                    <Link href={`/ngo/projects/${project.id}`}>
+                    <Link
+                      href={
+                        user?.role === "government"
+                          ? `/government/project-management/volunteer-${project.id}`
+                          : `/ngo/projects/${project.id}`
+                      }
+                    >
                       <Button className="w-full bg-purple-600 hover:bg-purple-700">
                         Manage this project
                       </Button>

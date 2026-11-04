@@ -61,12 +61,19 @@ export async function POST(req: NextRequest) {
     const department = String(data.department || '').trim();
     const ngoCommission = String(data.ngoCommission || '').trim();
     const proposalSummary = String(data.proposalSummary || '').trim();
-    if (!projectFunding || !timeline || !department || !ngoCommission || !proposalSummary) {
+    const upiId = String(data.upiId || '').trim();
+    // Basic VPA shape: local@handle (e.g..probetrust@upi / name@okaxis).
+    const upiOk = /^[\w.\-]{2,}@[a-zA-Z]{2,}$/.test(upiId);
+    if (
+      !projectFunding || !timeline || !department || !ngoCommission ||
+      !proposalSummary || !upiOk
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            'Funding amount, timeline, department, NGO commission and proposal summary are all required.',
+          message: !upiOk
+            ? 'Enter a valid UPI ID (e.g. yourorg@upi) so the government can pay you directly.'
+            : 'Funding amount, timeline, department, NGO commission and proposal summary are all required.',
         },
         { status: 400 }
       );
@@ -104,6 +111,7 @@ export async function POST(req: NextRequest) {
       ngoName: ngo.name,
       ngoEmail: ngo.email,
       ngoCommission,
+      upiId,
 
       // Government submission details
       department,
@@ -175,6 +183,41 @@ export async function GET(req: NextRequest) {
     console.error('Error fetching local initiatives:', error);
     return NextResponse.json(
       { success: false, message: 'Failed to fetch initiatives' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * NGO-side housekeeping on its own requests. Today only one action exists:
+ * marking a payment-received notice as seen so the dashboard toast and the
+ * volunteer-board badge stop announcing it on every visit.
+ */
+export async function PATCH(req: NextRequest) {
+  try {
+    await connectDB();
+
+    const auth = await requireRole(req, ['ngo']);
+    if (!auth.user) return auth.response;
+
+    const { id } = await req.json().catch(() => ({}));
+    if (!mongoose.isValidObjectId(String(id || ''))) {
+      return NextResponse.json({ success: false, message: 'Unknown request.' }, { status: 400 });
+    }
+
+    const initiative = await NGOLocalInitiative.findById(id);
+    if (!initiative || initiative.ngoId !== String(auth.user._id)) {
+      return NextResponse.json({ success: false, message: 'Request not found.' }, { status: 404 });
+    }
+
+    initiative.ngoSeenPaymentAt = new Date();
+    await initiative.save();
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Error updating local initiative:', error);
+    return NextResponse.json(
+      { success: false, message: error.message || 'Could not update the request.' },
       { status: 500 }
     );
   }

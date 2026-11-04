@@ -70,14 +70,23 @@ export async function membersForUndertaking(
 
   if (kind === 'volunteer') {
     // Joined volunteers are snapshot on ProjectMember; re-join User for phone.
+    // Role titles live on the project's roles, keyed by the membership's
+    // roleId, so resolve them here (~Volunteer only for legacy rows that
+    // predate role tracking).
     const rows = (await membersForProjects([refId]))[refId] || [];
+    const project = (await Project.findById(refId)
+      .select('roles')
+      .lean()) as any;
+    const roleTitleById = new Map(
+      (project?.roles || []).map((r: any) => [String(r._id), String(r.title)])
+    );
     return rows
       .filter((m) => !removed.has(m.userId))
       .map((m) => ({
         userId: m.userId,
         name: m.name,
         email: m.email,
-        roleTitle: m.roleTitle || 'Volunteer',
+        roleTitle: roleTitleById.get(String(m.roleId)) || m.roleTitle || 'Volunteer',
         joinedAt: m.joinedAt as Date,
       }));
   }

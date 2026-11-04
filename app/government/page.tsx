@@ -15,6 +15,7 @@ import {
   DollarSign,
   FileText,
   HandCoins,
+  Landmark,
   Loader2,
   MapPin,
   Plus,
@@ -47,6 +48,11 @@ import {
 import { UserMenu } from "@/components/user-menu";
 import { useAuth } from "@/components/auth-provider";
 import { PROJECT_CATEGORY_OPTIONS } from "@/components/projects/project-utils";
+import {
+  RazorpayCheckout,
+  parseRupees,
+  formatRupees,
+} from "@/components/government/razorpay-checkout";
 
 type GovRequest = {
   _id: string;
@@ -59,6 +65,8 @@ type GovRequest = {
   ngoName: string;
   ngoEmail: string;
   ngoCommission: string;
+  /** UPI VPA the NGO provided for receiving payment. */
+  upiId?: string;
   proposalSummary: string;
   expectedImpact?: string;
   implementationPlan?: string;
@@ -152,6 +160,8 @@ export default function GovernmentDashboard() {
   const [ngos, setNgos] = useState<NgoDirectoryEntry[]>([]);
   const [completedProjects, setCompletedProjects] = useState<CompletedProject[]>([]);
   const [govProjects, setGovProjects] = useState<GovProject[]>([]);
+  const [govManagedLive, setGovManagedLive] = useState<any[]>([]);
+  const [govManagedCompleted, setGovManagedCompleted] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   // ---- detail dialogs ----
@@ -163,6 +173,7 @@ export default function GovernmentDashboard() {
   const [approvedInputs, setApprovedInputs] = useState<Record<string, string>>({});
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [acting, setActing] = useState(false);
+  const [payModalRequest, setPayModalRequest] = useState<GovRequest | null>(null);
 
   // ---- create project form ----
   const [formTitle, setFormTitle] = useState("");
@@ -185,22 +196,28 @@ export default function GovernmentDashboard() {
     setDataLoading(true);
     setLoadError("");
     try {
-      const [reqRes, dirRes, compRes, projRes] = await Promise.all([
+      const [reqRes, dirRes, compRes, projRes, manRes] = await Promise.all([
         fetch("/api/government/funding-requests", { credentials: "include" }),
         fetch("/api/government/ngo-directory", { credentials: "include" }),
         fetch("/api/government/completed-projects", { credentials: "include" }),
         fetch("/api/government/projects", { credentials: "include" }),
+        fetch("/api/ngo/managed-projects", { credentials: "include" }),
       ]);
-      const [reqData, dirData, compData, projData] = await Promise.all([
+      const [reqData, dirData, compData, projData, manData] = await Promise.all([
         reqRes.json(),
         dirRes.json(),
         compRes.json(),
         projRes.json(),
+        manRes.json(),
       ]);
       if (reqRes.ok && reqData.success) setRequests(reqData.requests || []);
       if (dirRes.ok && dirData.success) setNgos(dirData.ngos || []);
       if (compRes.ok && compData.success) setCompletedProjects(compData.completed || []);
       if (projRes.ok && projData.success) setGovProjects(projData.projects || []);
+      if (manRes.ok && manData.success) {
+        setGovManagedLive(manData.live || []);
+        setGovManagedCompleted(manData.completed || []);
+      }
       if (!reqRes.ok || !reqData.success) {
         setLoadError(reqData.message || "Could not load dashboard data.");
       }
@@ -328,6 +345,7 @@ export default function GovernmentDashboard() {
     approved: "Approved Projects",
     ongoing: "Ongoing Projects",
     completed: "Completed Projects",
+    "gov-projects": "Government Projects",
     "create-project": "Create Project",
   };
 
@@ -437,6 +455,20 @@ export default function GovernmentDashboard() {
                 </span>
               )}
             </Button>
+            <div className="pt-2">
+              <Button
+                variant={activeSection === "gov-projects" ? "default" : "ghost"}
+                className={`w-full justify-start ${
+                  activeSection === "gov-projects"
+                    ? "bg-sky-600 text-white hover:bg-sky-700"
+                    : "hover:bg-sky-50"
+                }`}
+                onClick={() => setActiveSection("gov-projects")}
+              >
+                <Landmark className="mr-3 h-4 w-4" />
+                Government Projects
+              </Button>
+            </div>
             <div className="pt-2">
               <Button
                 variant={activeSection === "create-project" ? "default" : "ghost"}
@@ -998,6 +1030,134 @@ export default function GovernmentDashboard() {
             </div>
           )}
 
+          {/* ================= Government Projects ================= */}
+          {activeSection === "gov-projects" && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-sky-950">Government Projects</h2>
+                <p className="text-sm text-muted-foreground">
+                  Projects you opened directly. Only community users can see and join these — NGOs
+                  never see them. Open Manage to work like an NGO workspace: progress, photos,
+                  documents, notices, XP rewards, attendance and completion.
+                </p>
+              </div>
+              {dataLoading ? (
+                <div className="flex justify-center py-16">
+                  <Loader2 className="h-7 w-7 animate-spin text-sky-500" />
+                </div>
+              ) : govManagedLive.length + govManagedCompleted.length === 0 ? (
+                <Card>
+                  <CardContent className="py-14 text-center">
+                    <Landmark className="mx-auto mb-3 h-10 w-10 text-sky-200" />
+                    <p className="font-medium">No government projects yet</p>
+                    <p className="text-sm text-muted-foreground">
+                      Create one under Create Project — it appears here once published.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  {govManagedLive.length > 0 && (
+                    <>
+                      <h3 className="font-serif text-lg font-semibold text-sky-900">Live</h3>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {govManagedLive.map((p) => (
+                          <Card key={p.key} className="border-sky-100">
+                            <CardContent className="p-5">
+                              <div className="mb-1 flex flex-wrap items-center gap-2">
+                                <h3 className="font-semibold text-sky-950">{p.title}</h3>
+                                <Badge variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-700">
+                                  Live
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                <MapPin className="mr-1 inline h-3 w-3" />
+                                {p.location}
+                              </p>
+                              <div className="mt-3 flex items-center gap-3">
+                                <div className="flex-1 rounded-full bg-sky-100">
+                                  <div
+                                    className="h-3 rounded-full bg-gradient-to-r from-sky-500 to-cyan-400"
+                                    style={{ width: `${p.progress}%` }}
+                                  />
+                                </div>
+                                <span className="w-12 text-right text-sm font-semibold text-sky-700">
+                                  {p.progress}%
+                                </span>
+                              </div>
+                              <p className="mt-3 text-xs text-muted-foreground">
+                                {p.memberCount} participant{p.memberCount === 1 ? "" : "s"} · {p.media?.length || 0} media
+                              </p>
+                              <div className="mt-3 flex gap-2">
+                                <Link href={`/government/project-management/${p.key}`} className="flex-1">
+                                  <Button size="sm" className="w-full bg-sky-600 hover:bg-sky-700 text-white">
+                                    Manage
+                                  </Button>
+                                </Link>
+                                <Link href={p.href} className="flex-1">
+                                  <Button variant="outline" size="sm" className="w-full bg-transparent">
+                                    View public page
+                                  </Button>
+                                </Link>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {govManagedCompleted.length > 0 && (
+                    <>
+                      <h3 className="font-serif text-lg font-semibold text-sky-900">Completed</h3>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {govManagedCompleted.map((p) => (
+                          <Card key={p.key} className="border-sky-100">
+                            <CardContent className="p-5">
+                              {p.media?.some((m: any) => m.kind === "image") ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={p.media.find((m: any) => m.kind === "image").url}
+                                  alt={p.title}
+                                  className="mb-3 h-28 w-full rounded-md object-cover"
+                                />
+                              ) : null}
+                              <div className="mb-1 flex flex-wrap items-center gap-2">
+                                <h3 className="font-semibold text-sky-950">{p.title}</h3>
+                                <Badge className="bg-green-100 text-green-800 border-green-300">Completed</Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                <MapPin className="mr-1 inline h-3 w-3" />
+                                {p.location}
+                              </p>
+                              {p.completedSummary ? (
+                                <p className="mt-2 line-clamp-2 text-sm text-stone-600">{p.completedSummary}</p>
+                              ) : null}
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                {p.memberCount} participant{p.memberCount === 1 ? "" : "s"} · {p.media?.length || 0} media
+                              </p>
+                              <div className="mt-3 flex gap-2">
+                                <Link href={`/government/project-management/${p.key}`} className="flex-1">
+                                  <Button variant="outline" size="sm" className="w-full bg-transparent">
+                                    View workspace
+                                  </Button>
+                                </Link>
+                                <Link href={p.href} className="flex-1">
+                                  <Button variant="outline" size="sm" className="w-full bg-transparent">
+                                    View public page
+                                  </Button>
+                                </Link>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {/* ================= Create Project ================= */}
           {activeSection === "create-project" && (
             <div className="space-y-6">
@@ -1127,57 +1287,6 @@ export default function GovernmentDashboard() {
                     {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                     Publish project
                   </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="font-serif text-lg">
-                    Your government projects ({govProjects.length})
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Only community users see these — NGOs don't.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  {govProjects.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-muted-foreground">
-                      No government projects created yet.
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {govProjects.map((p) => (
-                        <div
-                          key={p.id}
-                          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-sky-100 px-4 py-3"
-                        >
-                          <div>
-                            <h4 className="font-medium">{p.title}</h4>
-                            <p className="text-xs text-muted-foreground">
-                              <MapPin className="mr-1 inline h-3 w-3" />
-                              {[p.location?.address, p.location?.district, p.location?.state]
-                                .filter(Boolean)
-                                .join(", ") || "Not specified"}{" "}
-                              · {p.totalFilled} of {p.totalSlots} slots filled
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className={STATUS_META[p.status]?.badge || "bg-stone-100 text-stone-600 border-stone-200"}
-                            >
-                              {STATUS_META[p.status]?.label || p.status}
-                            </Badge>
-                            <Link href={`/projects/${p.id}`}>
-                              <Button variant="outline" size="sm" className="bg-transparent">
-                                View
-                              </Button>
-                            </Link>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </div>
@@ -1403,32 +1512,38 @@ export default function GovernmentDashboard() {
 
               {detailRequest.status === "approved" && detailRequest.paymentStatus === "pending" && (
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
-                  <p className="mb-2 text-sm font-semibold text-emerald-900">Release the payment</p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Input
-                      placeholder="Payment reference (optional)"
-                      value={reviewNotes[detailRequest._id] || ""}
-                      onChange={(e) =>
-                        setReviewNotes((prev) => ({ ...prev, [detailRequest._id]: e.target.value }))
-                      }
-                      className="min-w-[12rem] flex-1"
-                    />
-                    <Button
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                      disabled={acting}
-                      onClick={() =>
-                        act(
-                          { action: "payment", id: detailRequest._id, ref: reviewNotes[detailRequest._id] || "" },
-                          detailRequest._id
-                        )
-                      }
-                    >
-                      {acting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                      Mark payment released
-                    </Button>
+                  <p className="mb-2 text-sm font-semibold text-emerald-900">
+                    Make the payment to {detailRequest.ngoName}
+                  </p>
+                  <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-emerald-800">
+                    <span className="rounded-md bg-white px-2.5 py-1.5 font-semibold">
+                      UPI ID: {detailRequest.upiId || "the NGO's registered UPI ID"}
+                    </span>
+                    <span className="text-emerald-700">
+                      Paying {detailRequest.approvedFunding || detailRequest.projectFunding} via the
+                      Razorpay demo gateway — the QR pays into the NGO's UPI ID.
+                    </span>
                   </div>
+                  <Button
+                    className="bg-[#2b84ea] hover:bg-[#1c6fd0] text-white"
+                    disabled={acting}
+                    onClick={() => {
+                      // Close the review dialog behind the gateway so the
+                      // checkout is the only dialog on screen.
+                      setDetailRequest(null);
+                      setPayModalRequest(detailRequest);
+                    }}
+                  >
+                    <DollarSign className="mr-2 h-4 w-4" />
+                    Pay{" "}
+                    {formatRupees(
+                      parseRupees(detailRequest.approvedFunding || detailRequest.projectFunding || "₹0")
+                    )}{" "}
+                    with Razorpay (demo)
+                  </Button>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Once released, the project moves to Approved Projects and shows its work photos.
+                    The demo gateway always succeeds. Once the payment completes, the project moves
+                    to Approved Projects and the NGO is notified.
                   </p>
                 </div>
               )}
@@ -1523,6 +1638,28 @@ export default function GovernmentDashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ================= Razorpay demo payment ================= */}
+      <RazorpayCheckout
+        open={payModalRequest !== null}
+        onOpenChange={(open) => !open && setPayModalRequest(null)}
+        amountLabel={
+          payModalRequest?.approvedFunding || payModalRequest?.projectFunding || "₹0"
+        }
+        payee={payModalRequest?.ngoName || ""}
+        vpa={payModalRequest?.upiId}
+        note={payModalRequest?.title}
+        onPaid={(paymentId) => {
+          const target = payModalRequest;
+          if (!target) return;
+          // Fire-and-track: act() reloads the dashboard and toasts the result;
+          // the success screen stays up until the user closes the checkout.
+          act(
+            { action: "payment", id: target._id, ref: paymentId },
+            target._id
+          );
+        }}
+      />
     </div>
   );
 }

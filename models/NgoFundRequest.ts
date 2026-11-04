@@ -38,6 +38,8 @@ export interface INgoFundRequest extends Document {
   ngoName: string;
   ngoEmail: string;
   ngoCommission: string;
+  /** Organisation UPI VPA the government pays into (provided by the NGO). */
+  upiId: string;
 
   // Government submission details
   department: string;
@@ -72,6 +74,8 @@ export interface INgoFundRequest extends Document {
   paymentStatus: 'pending' | 'completed';
   paymentRef?: string;
   fundedAt?: Date;
+  /** Cleared when the NGO has seen the payment-received notice. */
+  ngoSeenPaymentAt?: Date | null;
 
   // Metadata
   submittedAt: Date;
@@ -110,6 +114,7 @@ const NgoFundRequestSchema = new mongoose.Schema<INgoFundRequest>(
     ngoName: { type: String, required: true },
     ngoEmail: { type: String, required: true },
     ngoCommission: { type: String, required: true },
+    upiId: { type: String, default: '' },
 
     // Government submission details
     department: { type: String, required: true },
@@ -147,6 +152,7 @@ const NgoFundRequestSchema = new mongoose.Schema<INgoFundRequest>(
     paymentStatus: { type: String, enum: ['pending', 'completed'], default: 'pending' },
     paymentRef: { type: String, default: '' },
     fundedAt: { type: Date },
+    ngoSeenPaymentAt: { type: Date, default: null },
 
     // Metadata
     submittedAt: { type: Date, default: Date.now },
